@@ -1,0 +1,55 @@
+fep_analysis/
+├── README.md                       # Project documentation
+├── requirements.txt                # Project dependencies
+├── setup.py                        # Package installation
+├── config/
+│   ├── __init__.py
+│   ├── settings.py                 # Configuration settings
+│   └── clinical_weights.py         # Clinical risk weights and thresholds
+├── data/
+│   ├── __init__.py
+│   ├── loader.py                   # Data loading functions
+│   └── preprocessor.py             # Data preprocessing
+├── features/
+│   ├── __init__.py
+│   ├── engineer.py                 # Feature engineering
+│   ├── selector.py                 # Feature selection
+│   └── temporal.py                 # Temporal features for early warning
+├── models/
+│   ├── __init__.py
+│   ├── base.py                     # Base model class
+│   ├── logistic.py                 # Logistic regression model
+│   ├── decision_tree.py            # Decision tree model
+│   ├── gradient_boosting.py        # Gradient boosting model
+│   ├── ensemble.py                 # Custom ensemble focused on high-risk cases
+│   └── neural_network.py           # Neural network model
+├── evaluation/
+│   ├── __init__.py
+│   ├── metrics.py                  # Custom evaluation metrics
+│   ├── cross_validation.py         # Cross-validation strategies
+│   ├── threshold_optimization.py   # Threshold optimization
+│   └── clinical_utility.py         # Clinical utility calculations
+├── visualization/
+│   ├── __init__.py
+│   ├── plots.py                    # Basic visualization functions
+│   ├── model_comparison.py         # Model comparison visualizations
+│   ├── feature_importance.py       # Feature importance visualizations
+│   └── risk_stratification.py      # Risk stratification visualizations
+├── webapp/
+│   ├── __init__.py
+│   ├── app.py                      # Main Streamlit application
+│   ├── pages/
+│   │   ├── __init__.py
+│   │   ├── home.py                 # Home page
+│   │   ├── prediction.py           # Prediction tool
+│   │   ├── model_comparison.py     # Model comparison page
+│   │   └── feature_importance.py   # Feature importance page
+│   └── components/
+│       ├── __init__.py
+│       ├── inputs.py               # Input components
+│       ├── results.py              # Result display components
+│       └── risk_display.py         # Risk visualization components
+└── utils/
+    ├── __init__.py
+    ├── logging.py                  # Logging utilities
+    └── validation.py               # Input validation utilities
