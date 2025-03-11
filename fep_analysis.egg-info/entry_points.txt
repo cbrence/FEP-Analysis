@@ -1,0 +1,2 @@
+[console_scripts]
+fep-dashboard = fep_analysis.webapp.app:main

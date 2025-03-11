@@ -13,7 +13,7 @@ import sys
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import clinical_weights
-from webapp.pages import home, prediction, model_comparison, feature_importance, config_editor
+from webapp.pages import home, prediction, model_comparison, feature_importance, config_interface
 
 def load_models():
     """
@@ -58,6 +58,12 @@ def main():
     """
     Main function to run the Streamlit app.
     """
+    state = {
+        'patients_df': None,  # Will hold patient data once loaded
+        'models': {},         # Will hold loaded models
+        'recent_predictions': []  # History of recent predictions
+    }
+
     # Set page config
     st.set_page_config(
         page_title="FEP Prediction Dashboard",
@@ -85,15 +91,15 @@ def main():
     
     # Display selected page
     if page == "Home":
-        home.show_home()
+        home.render_home_page(state)
     elif page == "Prediction Tool":
         prediction.show_prediction_tool(st.session_state.models)
     elif page == "Model Comparison":
         model_comparison.show_model_comparison()
     elif page == "Feature Importance":
-        feature_importance.show_feature_importance()
+        feature_importance.render_feature_importance_page(state)
     elif page == "Clinical Settings":
-        config_editor.show_config_editor()
+        config_interface.show_config_editor()
     
     # Footer
     st.sidebar.markdown("---")

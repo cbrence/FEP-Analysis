@@ -3,16 +3,16 @@
 Page modules for the FEP prediction dashboard.
 """
 
-from .home import show_home
-from .prediction import show_prediction_tool
-from .model_comparison import show_model_comparison
-from .feature_importance import show_feature_importance
+from .pages.home import render_home_page
+from .pages.prediction import show_prediction_tool
+from .pages.model_comparison import show_model_comparison
+from .pages.feature_importance import display_feature_importance
 
 __all__ = [
     'show_home',
     'show_prediction_tool',
     'show_model_comparison',
-    'show_feature_importance'
+    'display_feature_importance'
 ]
 
 
@@ -21,14 +21,14 @@ __all__ = [
 UI components for the FEP prediction dashboard.
 """
 
-from .risk_display import (
-    display_risk_stratified_results,
+from .components.risk_display import (
+    display_risk_stratification,
     display_probability_bars,
     display_risk_factors,
-    display_risk_meter
+   # display_risk_meter
 )
 
-from .inputs import (
+from .components.inputs import (
     demographic_inputs,
     clinical_inputs,
     panss_positive_inputs,
@@ -36,17 +36,17 @@ from .inputs import (
     panss_general_inputs
 )
 
-from .results import (
+from .components.results import (
     display_prediction_results,
     display_confusion_matrix,
     display_feature_importance
 )
 
 __all__ = [
-    'display_risk_stratified_results',
+    'display_risk_stratification',
     'display_probability_bars',
     'display_risk_factors',
-    'display_risk_meter',
+    #'display_risk_meter',
     'demographic_inputs',
     'clinical_inputs',
     'panss_positive_inputs',

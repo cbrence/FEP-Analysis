@@ -509,3 +509,5 @@ def load_sample_data(state: Dict[str, Any]) -> None:
     
     # Add success message
     st.success("Sample data loaded successfully.")
+    
+    st.write("Preview of loaded data:", state['patients_df'].head())

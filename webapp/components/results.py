@@ -395,6 +395,107 @@ def display_feature_importance(feature_names: List[str],
     csv = df.to_csv(index=False)
     download_button(csv, "model_comparison.csv", "Download Data")
 
+def display_model_comparison(models_metrics: Dict[str, Dict[str, float]],
+                           metrics_to_show: Optional[List[str]] = None,
+                           higher_is_better: Optional[Dict[str, bool]] = None,
+                           sort_by: Optional[str] = None,
+                           title: str = "Model Comparison",
+                           show_as_table: bool = True,
+                           show_as_chart: bool = True) -> None:
+    """
+    Display comparison of multiple models across different metrics.
+    
+    Parameters
+    ----------
+    models_metrics : Dict[str, Dict[str, float]]
+        Dictionary with model names as keys and dictionaries of metrics as values
+    metrics_to_show : Optional[List[str]], default=None
+        List of metrics to include in comparison. If None, all metrics are shown.
+    higher_is_better : Optional[Dict[str, bool]], default=None
+        Dictionary specifying whether higher values are better for each metric
+    sort_by : Optional[str], default=None
+        Metric to sort models by
+    title : str, default="Model Comparison"
+        Title for the visualization
+    show_as_table : bool, default=True
+        Whether to show results as a table
+    show_as_chart : bool, default=True
+        Whether to show results as a chart
+    """
+    st.subheader(title)
+    
+    # Set default higher_is_better if not provided
+    if higher_is_better is None:
+        # Common metrics and whether higher values are better
+        higher_is_better = {
+            'accuracy': True,
+            'precision': True,
+            'recall': True,
+            'f1': True,
+            'auc': True,
+            'roc_auc': True,
+            'pr_auc': True,
+            'mse': False,
+            'rmse': False,
+            'mae': False,
+            'log_loss': False,
+            'clinical_utility': True
+        }
+    
+    # Filter metrics if specified
+    if metrics_to_show is not None:
+        models_metrics = {
+            model: {k: v for k, v in metrics.items() if k in metrics_to_show}
+            for model, metrics in models_metrics.items()
+        }
+    
+    # Create DataFrame for easier manipulation
+    data = []
+    for model, metrics in models_metrics.items():
+        row = {'Model': model}
+        row.update(metrics)
+        data.append(row)
+    
+    df = pd.DataFrame(data)
+    
+    # Sort if specified
+    if sort_by is not None and sort_by in df.columns:
+        is_better = higher_is_better.get(sort_by, True)
+        df = df.sort_values(sort_by, ascending=not is_better)
+    
+    # Format numeric values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df_display = df.copy()
+    for col in numeric_cols:
+        df_display[col] = df_display[col].apply(lambda x: f"{x:.3f}")
+    
+    # Display as table if requested
+    if show_as_table:
+        st.dataframe(df_display)
+    
+    # Display as chart if requested
+    if show_as_chart and len(df) > 0:
+        # Prepare data for chart
+        chart_data = df.melt(id_vars=['Model'], var_name='Metric', value_name='Value')
+        
+        # Create grouped bar chart
+        fig, ax = plt.subplots(figsize=(12, 8))
+        sns.barplot(data=chart_data, x='Metric', y='Value', hue='Model', ax=ax)
+        
+        # Customize chart
+        ax.set_title(title)
+        ax.set_xlabel('Metric')
+        ax.set_ylabel('Value')
+        plt.xticks(rotation=45)
+        plt.legend(title='Model', bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        
+        # Display chart
+        st.pyplot(fig)
+    
+    # Add download button
+    csv = df.to_csv(index=False)
+    download_button(csv, "model_comparison.csv", "Download Data")
 
 def display_confidence_intervals(point_estimate: float,
                                lower_bound: float,
@@ -731,10 +832,10 @@ def download_button(object_to_download: Union[str, bytes, pd.DataFrame],
     
     # Display button
     st.markdown(href, unsafe_allow_html=True)
-: str = "Feature Importance",
-                             top_n: int = 10,
-                             method: str = "model",
-                             color: str = "#1f77b4") -> None:
+   # : str = "Feature Importance",
+  #                           top_n: int = 10,
+  #                           method: str = "model",
+  #                           color: str = "#1f77b4") -> None:
     """
     Display feature importance visualization.
     
@@ -790,9 +891,199 @@ def download_button(object_to_download: Union[str, bytes, pd.DataFrame],
     csv = df.to_csv(index=False)
     download_button(csv, "feature_importance.csv", "Download Data")
 
+    
+def download_button(object_to_download: Union[str, bytes, pd.DataFrame],
+                  download_filename: str,
+                  button_text: str) -> None:
+    """
+    Create a button to download data.
+    
+    Parameters
+    ----------
+    object_to_download : Union[str, bytes, pd.DataFrame]
+        Object to be downloaded
+    download_filename : str
+        Filename for the download
+    button_text : str
+        Text to display on the button
+    """
+    # Convert DataFrame to CSV string
+    if isinstance(object_to_download, pd.DataFrame):
+        object_to_download = object_to_download.to_csv(index=False)
+    
+    # Convert to bytes if string
+    if isinstance(object_to_download, str):
+        object_to_download = object_to_download.encode()
+    
+    # Convert to base64
+    b64 = base64.b64encode(object_to_download).decode()
+    
+    # Determine MIME type
+    if download_filename.endswith('.csv'):
+        file_type = 'text/csv'
+    elif download_filename.endswith('.json'):
+        file_type = 'application/json'
+    else:
+        file_type = 'application/octet-stream'
+    
+    # Create download link
+    href = f'<a href="data:{file_type};base64,{b64}" download="{download_filename}">{button_text}</a>'
+    
+    # Display button
+    st.markdown(href, unsafe_allow_html=True)
 
-def display_model_comparison(models_metrics: Dict[str, Dict[str, float]],
-                           metrics_to_show: Optional[List[str]] = None,
-                           higher_is_better: Optional[Dict[str, bool]] = None,
-                           sort_by: Optional[str] = None,
-                           title
+def display_confusion_matrix(y_true: Union[List[int], np.ndarray], 
+                          y_pred: Union[List[int], np.ndarray],
+                          class_names: Optional[List[str]] = None,
+                          title: str = "Confusion Matrix",
+                          normalize: bool = False,
+                          cmap: str = "Blues",
+                          include_metrics: bool = True,
+                          figsize: Tuple[int, int] = (8, 6)) -> None: 
+    """
+    Display a confusion matrix with optional metrics.
+        
+    Parameters
+    ----------
+    y_true : Union[List[int], np.ndarray]
+        True class labels
+        y_pred : Union[List[int], np.ndarray]
+            Predicted class labels
+        class_names : Optional[List[str]], default=None
+            Names for classes (e.g., ["Negative", "Positive"])
+        title : str, default="Confusion Matrix"
+            Title for the visualization
+        normalize : bool, default=False
+            Whether to normalize the confusion matrix
+        cmap : str, default="Blues"
+            Colormap for the confusion matrix
+        include_metrics : bool, default=True
+            Whether to include accuracy, precision, recall, and F1 score
+        figsize : Tuple[int, int], default=(8, 6)
+            Figure size
+    """
+    from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+    
+    # Convert inputs to numpy arrays
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+    
+    # Set class names if not provided
+    if class_names is None:
+        # Default to binary classification names
+        if cm.shape[0] == 2:
+            class_names = ["Negative", "Positive"]
+        else:
+            class_names = [str(i) for i in range(cm.shape[0])]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Normalize if requested
+    if normalize:
+        cm_display = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        fmt = '.2f'
+    else:
+        cm_display = cm
+        fmt = 'd'
+    
+    # Plot confusion matrix
+    im = sns.heatmap(cm_display, annot=True, fmt=fmt, cmap=cmap,
+                    xticklabels=class_names, yticklabels=class_names,
+                    cbar=True, ax=ax)
+    
+    # Set labels and title
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('True')
+    ax.set_title(title)
+    
+    # Fix for matplotlib issues with tight layout
+    bottom, top = ax.get_ylim()
+    ax.set_ylim(bottom + 0.5, top - 0.5)
+    
+    # Display the plot
+    st.pyplot(fig)
+    
+    # Display metrics if requested
+    if include_metrics and len(np.unique(y_true)) == 2:  # Only for binary classification
+        # Calculate metrics
+        accuracy = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, zero_division=0)
+        recall = recall_score(y_true, y_pred, zero_division=0)
+        f1 = f1_score(y_true, y_pred, zero_division=0)
+        
+        # Display metrics in columns
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Accuracy", f"{accuracy:.3f}")
+        
+        with col2:
+            st.metric("Precision", f"{precision:.3f}")
+        
+        with col3:
+            st.metric("Recall", f"{recall:.3f}")
+        
+        with col4:
+            st.metric("F1 Score", f"{f1:.3f}")
+        
+        # Add explanation of the metrics
+        with st.expander("Metrics Explanation"):
+            st.markdown("""
+            - **Accuracy**: The proportion of correctly classified instances (TP + TN) / (TP + TN + FP + FN)
+            - **Precision**: The proportion of true positives among instances predicted as positive TP / (TP + FP)
+            - **Recall**: The proportion of true positives identified correctly TP / (TP + FN)
+            - **F1 Score**: The harmonic mean of precision and recall 2 * (Precision * Recall) / (Precision + Recall)
+            
+            Where:
+            - TP = True Positives
+            - TN = True Negatives
+            - FP = False Positives
+            - FN = False Negatives
+            """)
+        
+        # Calculate and display additional information about the confusion matrix
+        tn, fp, fn, tp = cm.ravel()
+        
+        st.write("Confusion Matrix Details:")
+        matrix_details = pd.DataFrame({
+            "Metric": ["True Positives (TP)", "False Positives (FP)", "False Negatives (FN)", "True Negatives (TN)"],
+            "Count": [tp, fp, fn, tn],
+            "Description": [
+                "Correctly predicted positive cases",
+                "Incorrectly predicted positive cases (Type I error)",
+                "Incorrectly predicted negative cases (Type II error)",
+                "Correctly predicted negative cases"
+            ]
+        })
+        
+        st.dataframe(matrix_details, hide_index=True)
+    
+    # For multiclass provide different metrics
+    elif include_metrics and len(np.unique(y_true)) > 2:
+        # Calculate metrics
+        accuracy = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, average='macro', zero_division=0)
+        recall = recall_score(y_true, y_pred, average='macro', zero_division=0)
+        f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
+        
+        # Display metrics in columns
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Accuracy", f"{accuracy:.3f}")
+        
+        with col2:
+            st.metric("Precision (macro)", f"{precision:.3f}")
+        
+        with col3:
+            st.metric("Recall (macro)", f"{recall:.3f}")
+        
+        with col4:
+            st.metric("F1 Score (macro)", f"{f1:.3f}")
+        
+        # Add note about macro averaging
+        st.caption("Note: Precision, Recall, and F1 are calculated using macro averaging (unweighted mean per class)")

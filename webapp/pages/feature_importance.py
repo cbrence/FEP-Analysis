@@ -9,7 +9,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 from ..components.inputs import model_selector, feature_selector
 from ..components.results import display_feature_importance

@@ -14,7 +14,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import clinical_weights
 from webapp.components.risk_display import (
-    display_risk_stratified_results,
+    display_risk_stratification,
     display_probability_bars,
     display_risk_factors
 )
@@ -266,10 +266,20 @@ def show_prediction_tool(models):
         
         with col2:
             # Show risk assessment
-            display_risk_stratified_results(class_probs, predicted_class)
+            risk_scores = list(class_probs.values())
+            display_risk_stratification(risk_scores, [predicted_class])
         
         # Show key risk factors
-        display_risk_factors(feature_values, SAMPLE_FEATURE_IMPORTANCE)
+        risk_factors_for_display = []
+        for feature, weight in SAMPLE_FEATURE_IMPORTANCE.items():
+            risk_factors_for_display.append({
+            'name': feature,
+            'weight': weight,
+            'category': 'Clinical',  # Add appropriate category if available
+            'modifiable': feature not in ['Age', 'Gender', 'Ethnicity']  # Example logic for modifiability
+             })
+
+        display_risk_factors(risk_factors_for_display)
         
         # Display clinical interpretation
         st.subheader("Clinical Interpretation")

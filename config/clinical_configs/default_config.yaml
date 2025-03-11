@@ -1,0 +1,68 @@
+class_definitions:
+  '0': No remission at 6 months, No remission at 12 months, No sustained remission
+  '1': Remission at 6 months, Remission at 12 months, Sustained remission
+  '2': No remission at 6 months, Remission at 12 months, No sustained remission
+  '3': Remission at 6 months, No remission at 12 months, Early relapse
+  '4': No remission at 6 months, Remission at 12 months, Sustained remission
+  '5': Remission at 6 months, No remission at 12 months, No sustained remission
+  '6': Remission at 6 months, No remission at 12 months, Sustained remission
+  '7': No remission at 6 months, No remission at 12 months, Sustained remission
+class_weights:
+  '0': 10.0
+  '1': 1.0
+  '2': 3.0
+  '3': 8.0
+  '4': 1.0
+  '5': 4.0
+  '6': 3.0
+  '7': 1.5
+clinical_recommendations:
+  high_risk:
+  - Consider more frequent monitoring (weekly)
+  - Review medication adherence
+  - Evaluate need for psychosocial interventions
+  - Consider family/caregiver involvement
+  - Monitor for early warning signs of relapse
+  low_risk:
+  - Maintain standard monitoring schedule
+  - Continue current management plan
+  - Routine monitoring for changes in status
+  moderate_risk:
+  - Increase monitoring frequency (bi-weekly)
+  - Address modifiable risk factors
+  - Consider psychosocial support
+  - Education about early warning signs
+error_costs:
+  false_negative:
+    high_risk: 10.0
+    low_risk: 1.0
+    moderate_risk: 5.0
+  false_positive:
+    high_risk: 1.0
+    low_risk: 3.0
+    moderate_risk: 2.0
+prediction_thresholds:
+  '0': 0.3
+  '1': 0.5
+  '2': 0.4
+  '3': 0.3
+  '4': 0.5
+  '5': 0.4
+  '6': 0.4
+  '7': 0.5
+risk_levels:
+  high_risk:
+  - 0
+  - 3
+  low_risk:
+  - 1
+  - 4
+  - 7
+  moderate_risk:
+  - 2
+  - 5
+  - 6
+stratification_thresholds:
+  high_risk: 0.3
+  moderate_risk: 0.2
+time_discount_factor: 0.9

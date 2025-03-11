@@ -13,6 +13,493 @@ from datetime import datetime, timedelta
 import json
 
 
+def demographic_inputs(default_values: Optional[Dict[str, Any]] = None,
+                       key: str = "demographics") -> Dict[str, Any]:
+    """
+    Create input widgets for patient demographic information.
+    
+    Parameters
+    ----------
+    default_values : Optional[Dict[str, Any]], default=None
+        Dictionary mapping field names to default values
+    key : str, default="demographics"
+        Base key for the Streamlit components
+        
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary mapping field names to input values
+    """
+    if default_values is None:
+        default_values = {}
+    
+    st.subheader("Demographic Information")
+    
+    # Create two columns for layout
+    col1, col2 = st.columns(2)
+    
+    # First column
+    with col1:
+        # Age
+        age = st.number_input(
+            "Age",
+            min_value=15,
+            max_value=90,
+            value=default_values.get("Age", 25),
+            step=1,
+            key=f"{key}_age"
+        )
+        
+        # Gender
+        gender = st.selectbox(
+            "Gender",
+            options=["Male", "Female", "Other"],
+            index=["Male", "Female", "Other"].index(default_values.get("Gender", "Male")),
+            key=f"{key}_gender"
+        )
+        
+        # Ethnicity
+        ethnicity = st.selectbox(
+            "Ethnicity",
+            options=["White", "Black", "Asian", "Hispanic", "Mixed", "Other"],
+            index=["White", "Black", "Asian", "Hispanic", "Mixed", "Other"].index(
+                default_values.get("Ethnicity", "White")),
+            key=f"{key}_ethnicity"
+        )
+    
+    # Second column
+    with col2:
+        # Education
+        education = st.selectbox(
+            "Education",
+            options=["Primary", "Secondary", "College", "University", "Postgraduate"],
+            index=["Primary", "Secondary", "College", "University", "Postgraduate"].index(
+                default_values.get("Education", "Secondary")),
+            key=f"{key}_education"
+        )
+        
+        # Education years
+        education_years = st.number_input(
+            "Education Years",
+            min_value=0,
+            max_value=25,
+            value=default_values.get("Education_Num", 12),
+            step=1,
+            key=f"{key}_education_years"
+        )
+        
+        # Accommodation
+        accommodation = st.selectbox(
+            "Accommodation",
+            options=["Independent", "Family Home", "Supported", "Homeless", "Other"],
+            index=["Independent", "Family Home", "Supported", "Homeless", "Other"].index(
+                default_values.get("Accommodation", "Family Home")),
+            key=f"{key}_accommodation"
+        )
+    
+    # Additional demographics in expander
+    with st.expander("Additional Demographics"):
+        # Citizenship
+        citizenship = st.selectbox(
+            "Citizenship",
+            options=["Citizen", "Permanent Resident", "Temporary Resident", "Other"],
+            index=["Citizen", "Permanent Resident", "Temporary Resident", "Other"].index(
+                default_values.get("Citizenship", "Citizen")),
+            key=f"{key}_citizenship"
+        )
+        
+        # Relationship status
+        relationship = st.selectbox(
+            "Relationship Status",
+            options=["Single", "Married", "Partnered", "Separated", "Divorced", "Widowed"],
+            index=["Single", "Married", "Partnered", "Separated", "Divorced", "Widowed"].index(
+                default_values.get("Relationship", "Single")),
+            key=f"{key}_relationship"
+        )
+        
+        # Household
+        household = st.selectbox(
+            "Household",
+            options=["Lives Alone", "With Partner", "With Family", "Shared Housing", "Other"],
+            index=["Lives Alone", "With Partner", "With Family", "Shared Housing", "Other"].index(
+                default_values.get("Household", "With Family")),
+            key=f"{key}_household"
+        )
+        
+        # Employment
+        employment = st.selectbox(
+            "Employment",
+            options=["Employed", "Unemployed", "Student", "Retired", "Unable to Work"],
+            index=["Employed", "Unemployed", "Student", "Retired", "Unable to Work"].index(
+                default_values.get("M0_Emp", "Unemployed")),
+            key=f"{key}_employment"
+        )
+    
+    # Combine all inputs into a single dictionary
+    values = {
+        "Age": age,
+        "Gender": gender,
+        "Ethnicity": ethnicity,
+        "Education": education,
+        "Education_Num": education_years,
+        "Accommodation": accommodation,
+        "Citizenship": citizenship,
+        "Relationship": relationship,
+        "Household": household,
+        "M0_Emp": employment
+    }
+    
+    return values
+
+
+def clinical_inputs(default_values: Optional[Dict[str, Any]] = None,
+                  key: str = "clinical") -> Dict[str, Any]:
+    """
+    Create input widgets for patient clinical information.
+    
+    Parameters
+    ----------
+    default_values : Optional[Dict[str, Any]], default=None
+        Dictionary mapping field names to default values
+    key : str, default="clinical"
+        Base key for the Streamlit components
+        
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary mapping field names to input values
+    """
+    if default_values is None:
+        default_values = {}
+    
+    st.subheader("Clinical Information")
+    
+    # Create two columns for layout
+    col1, col2 = st.columns(2)
+    
+    # First column - Substance use and hospitalization
+    with col1:
+        # Hospital admission
+        admitted_hosp = st.radio(
+            "Previous Hospital Admission",
+            options=["Yes", "No"],
+            index=["Yes", "No"].index(default_values.get("Admitted_Hosp", "No")),
+            key=f"{key}_admitted_hosp",
+            horizontal=True
+        )
+        
+        # Substance use
+        drugs = st.radio(
+            "Drug Use",
+            options=["Yes", "No"],
+            index=["Yes", "No"].index(default_values.get("Drugs", "No")),
+            key=f"{key}_drugs",
+            horizontal=True
+        )
+        
+        # Alcohol use
+        alcohol = st.radio(
+            "Problematic Alcohol Use",
+            options=["Yes", "No"],
+            index=["Yes", "No"].index(default_values.get("Alcohol", "No")),
+            key=f"{key}_alcohol",
+            horizontal=True
+        )
+    
+    # Second column - Depression
+    with col2:
+        # Depression severity
+        depression_severity = st.select_slider(
+            "Depression Severity",
+            options=["None", "Mild", "Moderate", "Severe"],
+            value=default_values.get("Depression_Severity", "None"),
+            key=f"{key}_depression_severity"
+        )
+        
+        # Depression scale
+        depression_scale = st.slider(
+            "Depression Scale Score",
+            min_value=0,
+            max_value=10,
+            value=default_values.get("Depression_Sev_Scale", 0),
+            step=1,
+            key=f"{key}_depression_scale"
+        )
+    
+    # Cohort information
+    cohort = st.selectbox(
+        "Cohort",
+        options=["First Episode", "Early Intervention", "Control", "Other"],
+        index=["First Episode", "Early Intervention", "Control", "Other"].index(
+            default_values.get("Cohort", "First Episode")),
+        key=f"{key}_cohort"
+    )
+    
+    # Additional clinical information
+    with st.expander("Additional Clinical Information"):
+        # Parental presence
+        parent = st.selectbox(
+            "Parental Presence",
+            options=["Both", "One", "None"],
+            index=["Both", "One", "None"].index(default_values.get("Parent", "Both")),
+            key=f"{key}_parent"
+        )
+        
+        # Duration of untreated psychosis (in weeks)
+        dup_weeks = st.number_input(
+            "Duration of Untreated Psychosis (weeks)",
+            min_value=0,
+            max_value=260,  # 5 years in weeks
+            value=default_values.get("DUP_Weeks", 8),
+            step=1,
+            key=f"{key}_dup_weeks"
+        )
+        
+        # Age of onset
+        age_onset = st.number_input(
+            "Age of Onset",
+            min_value=10,
+            max_value=90,
+            value=default_values.get("Age_Onset", 22),
+            step=1,
+            key=f"{key}_age_onset"
+        )
+    
+    # Convert depression severity to scale if needed
+    if depression_severity == "None":
+        depression_sev_value = 0
+    elif depression_severity == "Mild":
+        depression_sev_value = 1
+    elif depression_severity == "Moderate":
+        depression_sev_value = 2
+    else:  # Severe
+        depression_sev_value = 3
+    
+    # Combine all inputs into a single dictionary
+    values = {
+        "Admitted_Hosp": admitted_hosp,
+        "Drugs": drugs,
+        "Alcohol": alcohol,
+        "Depression_Severity": depression_severity,
+        "Depression_Sev_Scale": depression_scale,
+        "Cohort": cohort,
+        "Parent": parent,
+        "DUP_Weeks": dup_weeks,
+        "Age_Onset": age_onset,
+        "Depression_Sev_Value": depression_sev_value
+    }
+    
+    return values
+
+
+def panss_positive_inputs(default_values: Optional[Dict[str, int]] = None,
+                        key: str = "panss_positive") -> Dict[str, int]:
+    """
+    Create input widgets for PANSS Positive Scale items.
+    
+    Parameters
+    ----------
+    default_values : Optional[Dict[str, int]], default=None
+        Dictionary mapping PANSS item names to default values
+    key : str, default="panss_positive"
+        Base key for the Streamlit components
+        
+    Returns
+    -------
+    Dict[str, int]
+        Dictionary mapping PANSS item names to values
+    """
+    if default_values is None:
+        default_values = {}
+    
+    st.subheader("PANSS Positive Scale")
+    
+    # Define PANSS positive items
+    panss_positive_items = {
+        "P1": "Delusions",
+        "P2": "Conceptual disorganization",
+        "P3": "Hallucinatory behavior",
+        "P4": "Excitement",
+        "P5": "Grandiosity",
+        "P6": "Suspiciousness/persecution",
+        "P7": "Hostility"
+    }
+    
+    # Create a dictionary to store values
+    values = {}
+    
+    # Create inputs for each item
+    for item_code, item_name in panss_positive_items.items():
+        field_key = f"M0_PANSS_{item_code}"
+        
+        # Create a slider for each item
+        values[field_key] = st.slider(
+            f"{item_code}. {item_name}",
+            min_value=1,
+            max_value=7,
+            value=default_values.get(field_key, 1),
+            step=1,
+            help="1=Absent, 2=Minimal, 3=Mild, 4=Moderate, 5=Moderate-Severe, 6=Severe, 7=Extreme",
+            key=f"{key}_{item_code.lower()}"
+        )
+    
+    # Display total score
+    total_score = sum(values.values())
+    st.metric("Positive Scale Total", total_score)
+    st.caption("Range: 7-49, Higher scores indicate more severe symptoms")
+    
+    return values
+
+
+def panss_negative_inputs(default_values: Optional[Dict[str, int]] = None,
+                        key: str = "panss_negative") -> Dict[str, int]:
+    """
+    Create input widgets for PANSS Negative Scale items.
+    
+    Parameters
+    ----------
+    default_values : Optional[Dict[str, int]], default=None
+        Dictionary mapping PANSS item names to default values
+    key : str, default="panss_negative"
+        Base key for the Streamlit components
+        
+    Returns
+    -------
+    Dict[str, int]
+        Dictionary mapping PANSS item names to values
+    """
+    if default_values is None:
+        default_values = {}
+    
+    st.subheader("PANSS Negative Scale")
+    
+    # Define PANSS negative items
+    panss_negative_items = {
+        "N1": "Blunted affect",
+        "N2": "Emotional withdrawal",
+        "N3": "Poor rapport",
+        "N4": "Passive/apathetic social withdrawal",
+        "N5": "Difficulty in abstract thinking",
+        "N6": "Lack of spontaneity & flow of conversation",
+        "N7": "Stereotyped thinking"
+    }
+    
+    # Create a dictionary to store values
+    values = {}
+    
+    # Create inputs for each item
+    for item_code, item_name in panss_negative_items.items():
+        field_key = f"M0_PANSS_{item_code}"
+        
+        # Create a slider for each item
+        values[field_key] = st.slider(
+            f"{item_code}. {item_name}",
+            min_value=1,
+            max_value=7,
+            value=default_values.get(field_key, 1),
+            step=1,
+            help="1=Absent, 2=Minimal, 3=Mild, 4=Moderate, 5=Moderate-Severe, 6=Severe, 7=Extreme",
+            key=f"{key}_{item_code.lower()}"
+        )
+    
+    # Display total score
+    total_score = sum(values.values())
+    st.metric("Negative Scale Total", total_score)
+    st.caption("Range: 7-49, Higher scores indicate more severe symptoms")
+    
+    return values
+
+
+def panss_general_inputs(default_values: Optional[Dict[str, int]] = None,
+                       key: str = "panss_general") -> Dict[str, int]:
+    """
+    Create input widgets for PANSS General Psychopathology Scale items.
+    
+    Parameters
+    ----------
+    default_values : Optional[Dict[str, int]], default=None
+        Dictionary mapping PANSS item names to default values
+    key : str, default="panss_general"
+        Base key for the Streamlit components
+        
+    Returns
+    -------
+    Dict[str, int]
+        Dictionary mapping PANSS item names to values
+    """
+    if default_values is None:
+        default_values = {}
+    
+    st.subheader("PANSS General Psychopathology Scale")
+    
+    # Define PANSS general items
+    panss_general_items = {
+        "G1": "Somatic concern",
+        "G2": "Anxiety",
+        "G3": "Guilt feelings",
+        "G4": "Tension",
+        "G5": "Mannerisms & posturing",
+        "G6": "Depression",
+        "G7": "Motor retardation",
+        "G8": "Uncooperativeness",
+        "G9": "Unusual thought content",
+        "G10": "Disorientation",
+        "G11": "Poor attention",
+        "G12": "Lack of judgment & insight",
+        "G13": "Disturbance of volition",
+        "G14": "Poor impulse control",
+        "G15": "Preoccupation",
+        "G16": "Active social avoidance"
+    }
+    
+    # Create a dictionary to store values
+    values = {}
+    
+    # Create tabs for better organization due to many items
+    tab1, tab2 = st.tabs(["Items G1-G8", "Items G9-G16"])
+    
+    with tab1:
+        # First half of general items
+        for item_code in ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]:
+            item_name = panss_general_items[item_code]
+            field_key = f"M0_PANSS_{item_code}"
+            
+            # Create a slider for each item
+            values[field_key] = st.slider(
+                f"{item_code}. {item_name}",
+                min_value=1,
+                max_value=7,
+                value=default_values.get(field_key, 1),
+                step=1,
+                help="1=Absent, 2=Minimal, 3=Mild, 4=Moderate, 5=Moderate-Severe, 6=Severe, 7=Extreme",
+                key=f"{key}_{item_code.lower()}"
+            )
+    
+    with tab2:
+        # Second half of general items
+        for item_code in ["G9", "G10", "G11", "G12", "G13", "G14", "G15", "G16"]:
+            item_name = panss_general_items[item_code]
+            field_key = f"M0_PANSS_{item_code}"
+            
+            # Create a slider for each item
+            values[field_key] = st.slider(
+                f"{item_code}. {item_name}",
+                min_value=1,
+                max_value=7,
+                value=default_values.get(field_key, 1),
+                step=1,
+                help="1=Absent, 2=Minimal, 3=Mild, 4=Moderate, 5=Moderate-Severe, 6=Severe, 7=Extreme",
+                key=f"{key}_{item_code.lower()}"
+            )
+    
+    # Display total score
+    total_score = sum(values.values())
+    st.metric("General Psychopathology Scale Total", total_score)
+    st.caption("Range: 16-112, Higher scores indicate more severe symptoms")
+    
+    return values
+
+
 def patient_selector(patients_df: pd.DataFrame,
                     key: str = "patient_selector",
                     label: str = "Select Patient",

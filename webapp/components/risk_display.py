@@ -18,6 +18,102 @@ import base64
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
+def display_probability_bars(probabilities: Dict[str, float],
+                           title: str = "Outcome Probabilities",
+                           threshold: Optional[float] = None,
+                           sorted_by_value: bool = True,
+                           positive_color: str = "#1f77b4",
+                           negative_color: str = "#ff7f0e") -> None:
+    """
+    Display probability bars for multiple outcomes.
+    
+    Parameters
+    ----------
+    probabilities : Dict[str, float]
+        Dictionary mapping outcome names to probabilities
+    title : str, default="Outcome Probabilities"
+        Title for the visualization
+    threshold : Optional[float], default=None
+        Threshold to mark on the bars
+    sorted_by_value : bool, default=True
+        Whether to sort bars by probability values
+    positive_color : str, default="#1f77b4"
+        Color for probabilities above threshold
+    negative_color : str, default="#ff7f0e"
+        Color for probabilities below threshold
+    """
+    st.subheader(title)
+    
+    # Convert to DataFrame for easier manipulation
+    df = pd.DataFrame({
+        'Outcome': list(probabilities.keys()),
+        'Probability': list(probabilities.values())
+    })
+    
+    # Sort if requested
+    if sorted_by_value:
+        df = df.sort_values('Probability', ascending=False)
+    
+    # Create a horizontal bar chart with Altair
+    base = alt.Chart(df).encode(
+        y=alt.Y('Outcome:N', sort=None),  # Use the order in the DataFrame
+        tooltip=['Outcome:N', 'Probability:Q']
+    )
+    
+    # Create the bars with conditional coloring if threshold is provided
+    if threshold is not None:
+        # Define color based on threshold
+        color_condition = alt.condition(
+            alt.datum.Probability >= threshold,
+            alt.value(positive_color),
+            alt.value(negative_color)
+        )
+        
+        bars = base.mark_bar().encode(
+            x=alt.X('Probability:Q', scale=alt.Scale(domain=[0, 1])),
+            color=color_condition
+        )
+        
+        # Add threshold line
+        threshold_line = alt.Chart(pd.DataFrame({'threshold': [threshold]})).mark_rule(
+            color='black',
+            strokeDash=[3, 3],
+            size=2
+        ).encode(
+            x='threshold:Q'
+        )
+        
+        # Combine the chart elements
+        chart = (bars + threshold_line).properties(
+            width=600,
+            height=300
+        )
+    else:
+        # Simple bars without threshold
+        chart = base.mark_bar().encode(
+            x=alt.X('Probability:Q', scale=alt.Scale(domain=[0, 1])),
+            color=alt.value(positive_color)
+        ).properties(
+            width=600,
+            height=300
+        )
+    
+    # Display the chart
+    st.altair_chart(chart, use_container_width=True)
+    
+    # Add table with actual values
+    st.caption("Probability Values")
+    df['Probability'] = df['Probability'].apply(lambda x: f"{x:.2%}")
+    st.dataframe(df, hide_index=True)
+    
+    # Add information about threshold if provided
+    if threshold is not None:
+        above_threshold = df[df['Probability'].apply(lambda x: float(x.strip('%'))/100 >= threshold)]
+        if not above_threshold.empty:
+            st.info(f"Outcomes above threshold ({threshold:.2%}): {', '.join(above_threshold['Outcome'].tolist())}")
+
+
+
 
 def display_risk_timeline(timestamps: Union[List, np.ndarray],
                          risk_scores: Union[List[float], np.ndarray],
@@ -593,6 +689,161 @@ def display_risk_map(x_values: Union[List[float], np.ndarray],
         mime="text/csv"
     )
 
+def display_risk_factors(risk_factors: List[Dict[str, Any]],
+                       title: str = "Key Risk Factors",
+                       show_weights: bool = True,
+                       show_descriptions: bool = True) -> None:
+    """
+    Display key risk factors with their weights and descriptions.
+    
+    Parameters
+    ----------
+    risk_factors : List[Dict[str, Any]]
+        List of risk factor dictionaries, each containing at least 'name' and 'weight' keys.
+        Optional keys include 'description', 'category', and 'modifiable'.
+    title : str, default="Key Risk Factors"
+        Title for the visualization
+    show_weights : bool, default=True
+        Whether to show risk factor weights
+    show_descriptions : bool, default=True
+        Whether to show risk factor descriptions
+    """
+    st.subheader(title)
+    
+    # Sort risk factors by absolute weight (descending)
+    sorted_factors = sorted(risk_factors, key=lambda x: abs(x.get('weight', 0)), reverse=True)
+    
+    # Prepare data for display
+    risk_data = []
+    protective_data = []
+    
+    for factor in sorted_factors:
+        # Get factor properties
+        name = factor.get('name', 'Unknown')
+        weight = factor.get('weight', 0)
+        description = factor.get('description', '')
+        category = factor.get('category', 'Other')
+        modifiable = factor.get('modifiable', False)
+        
+        # Create display dictionary
+        display_dict = {
+            'name': name,
+            'weight': weight,
+            'description': description,
+            'category': category,
+            'modifiable': modifiable
+        }
+        
+        # Add to appropriate list based on weight
+        if weight >= 0:
+            risk_data.append(display_dict)
+        else:
+            protective_data.append(display_dict)
+    
+    # Create tabs for risk and protective factors
+    if risk_data and protective_data:
+        risk_tab, protective_tab = st.tabs(["Risk Factors", "Protective Factors"])
+        
+        with risk_tab:
+            _display_factor_table(risk_data, "risk", show_weights, show_descriptions)
+        
+        with protective_tab:
+            _display_factor_table(protective_data, "protective", show_weights, show_descriptions)
+    elif risk_data:
+        _display_factor_table(risk_data, "risk", show_weights, show_descriptions)
+    elif protective_data:
+        _display_factor_table(protective_data, "protective", show_weights, show_descriptions)
+    else:
+        st.info("No risk factors available for display.")
+
+
+def _display_factor_table(factors: List[Dict[str, Any]], 
+                        factor_type: str,
+                        show_weights: bool,
+                        show_descriptions: bool) -> None:
+    """
+    Helper function to display a table of risk or protective factors.
+    
+    Parameters
+    ----------
+    factors : List[Dict[str, Any]]
+        List of factor dictionaries to display
+    factor_type : str
+        Type of factors ("risk" or "protective")
+    show_weights : bool
+        Whether to show weights
+    show_descriptions : bool
+        Whether to show descriptions
+    """
+    # Create DataFrame
+    df = pd.DataFrame(factors)
+    
+    # Format DataFrame for display
+    if 'weight' in df.columns:
+        df['weight'] = df['weight'].apply(lambda x: abs(x))  # Use absolute value for display
+    
+    # Add modifiable indicator
+    if 'modifiable' in df.columns:
+        df['modifiable'] = df['modifiable'].apply(lambda x: "✓" if x else "")
+    
+    # Group by category if available
+    if 'category' in df.columns and len(df['category'].unique()) > 1:
+        categories = sorted(df['category'].unique())
+        
+        for category in categories:
+            st.write(f"**{category}**")
+            category_factors = df[df['category'] == category]
+            
+            for _, row in category_factors.iterrows():
+                _display_factor_card(row, factor_type, show_weights, show_descriptions)
+            
+            st.markdown("---")
+    else:
+        # Display all factors without categorization
+        for _, row in df.iterrows():
+            _display_factor_card(row, factor_type, show_weights, show_descriptions)
+
+
+def _display_factor_card(factor: pd.Series, 
+                       factor_type: str,
+                       show_weights: bool,
+                       show_descriptions: bool) -> None:
+    """
+    Display a single factor as a card-like element.
+    
+    Parameters
+    ----------
+    factor : pd.Series
+        Factor data as a pandas Series
+    factor_type : str
+        Type of factor ("risk" or "protective")
+    show_weights : bool
+        Whether to show weights
+    show_descriptions : bool
+        Whether to show descriptions
+    """
+    # Determine color based on factor type
+    color = "red" if factor_type == "risk" else "green"
+    
+    # Create columns for layout
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        # Display factor name with optional modifiable indicator
+        modifiable = factor.get('modifiable', False)
+        modifiable_indicator = " 🔄" if modifiable else ""
+        st.markdown(f"**{factor['name']}{modifiable_indicator}**")
+        
+        # Display description if available and requested
+        if show_descriptions and 'description' in factor and factor['description']:
+            st.caption(factor['description'])
+    
+    with col2:
+        # Display weight if requested
+        if show_weights and 'weight' in factor:
+            weight = factor['weight']
+            st.markdown(f"<span style='color:{color}; font-weight:bold;'>{weight:.2f}</span>", 
+                       unsafe_allow_html=True)
 
 def display_longitudinal_risk(patient_data: pd.DataFrame,
                             patient_id_col: str = "patient_id",

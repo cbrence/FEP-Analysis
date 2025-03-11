@@ -19,53 +19,53 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG = {
     # Class definitions and descriptions
     "class_definitions": {
-        "0": "No remission at 6 months, No remission at 12 months, No sustained remission",
-        "1": "Remission at 6 months, Remission at 12 months, Sustained remission",
-        "2": "No remission at 6 months, Remission at 12 months, No sustained remission",
-        "3": "Remission at 6 months, No remission at 12 months, Early relapse",
-        "4": "No remission at 6 months, Remission at 12 months, Sustained remission",
-        "5": "Remission at 6 months, No remission at 12 months, No sustained remission",
-        "6": "Remission at 6 months, No remission at 12 months, Sustained remission",
-        "7": "No remission at 6 months, No remission at 12 months, Sustained remission"
+        "0": "No remission at 6 months, No remission at 12 months, Poor treatment adherence (Highest risk)",
+        "1": "No remission at 6 months, No remission at 12 months, Moderate treatment adherence (Very high risk)",
+        "2": "Remission at 6 months, No remission at 12 months - Early Relapse with significant functional decline (High risk)",
+        "3": "No remission at 6 months, Remission at 12 months, Poor treatment adherence (Moderate-high risk)",
+        "4": "Remission at 6 months, No remission at 12 months, Maintained social functioning (Moderate risk)",
+        "5": "No remission at 6 months, Remission at 12 months, Good treatment adherence (Moderate-low risk)",
+        "6": "Remission at 6 months, Remission at 12 months with some residual symptoms (Low risk)",
+        "7": "Remission at 6 months, Remission at 12 months, Full symptomatic and functional recovery (Lowest risk)"
     },
     
     # Clinical risk categorization (which classes are high/moderate/low risk)
     "risk_levels": {
-        "high_risk": [0, 3],      # No remission or early relapse
-        "moderate_risk": [2, 5, 6], # Inconsistent remission
-        "low_risk": [1, 4, 7]     # Sustained remission
+        "high_risk": [0, 1, 2],      # Highest and high risk classes
+        "moderate_risk": [3, 4, 5],   # Moderate risk classes
+        "low_risk": [6, 7]            # Low risk classes
     },
     
     # Class weights for model training (higher = more important)
     "class_weights": {
-        "0": 10.0,  # No remission - highest risk
-        "1": 1.0,   # Sustained remission - lowest risk
-        "2": 3.0,   # Late remission only
-        "3": 8.0,   # Early relapse - high risk
-        "4": 1.0,   # Alternative sustained remission - low risk
-        "5": 4.0,   # Inconsistent pattern
-        "6": 3.0,   # Other sustained pattern
-        "7": 1.5    # Late sustained pattern
+        "0": 10.0,  # Highest risk - Poor adherence, no remission at either time point
+        "1": 8.0,   # Very high risk - Moderate adherence, no remission at either time point
+        "2": 7.0,   # High risk - Early relapse with functional decline
+        "3": 5.0,   # Moderate-high risk - Poor adherence but late remission
+        "4": 4.0,   # Moderate risk - Early remission not sustained but maintained functioning
+        "5": 3.0,   # Moderate-low risk - Good adherence with late remission
+        "6": 2.0,   # Low risk - Sustained remission but residual symptoms
+        "7": 1.0    # Lowest risk - Full recovery
     },
     
     # Prediction thresholds (lower threshold = higher sensitivity)
     "prediction_thresholds": {
-        "0": 0.3,  # Lower threshold for detecting no remission
-        "1": 0.5,  # Standard threshold for sustained remission
-        "2": 0.4,  # Slightly lower threshold for partial remission
-        "3": 0.3,  # Lower threshold for early relapse 
-        "4": 0.5,  # Standard threshold for sustained remission
-        "5": 0.4,  # Slightly lower threshold for inconsistent
-        "6": 0.4,  # Slightly lower threshold for other pattern
-        "7": 0.5   # Standard threshold for sustained remission
+        "0": 0.2,  # Very low threshold for highest risk
+        "1": 0.25, # Low threshold for very high risk
+        "2": 0.3,  # Low threshold for high risk
+        "3": 0.35, # Moderately low threshold for moderate-high risk
+        "4": 0.4,  # Moderate threshold for moderate risk
+        "5": 0.45, # Moderate threshold for moderate-low risk
+        "6": 0.5,  # Standard threshold for low risk
+        "7": 0.55  # Higher threshold for lowest risk
     },
     
     # Costs for different types of errors (used in evaluation)
     "error_costs": {
         "false_negative": {  # Missing a case that needs intervention
-            "high_risk": 10.0,     # Missing high-risk cases (classes 0, 3)
-            "moderate_risk": 5.0,  # Missing moderate-risk cases (classes 2, 5, 6)
-            "low_risk": 1.0        # Missing low-risk cases (classes 1, 4, 7)
+            "high_risk": 10.0,     # Missing high-risk cases (classes 0, 1, 2)
+            "moderate_risk": 5.0,  # Missing moderate-risk cases (classes 3, 4, 5)
+            "low_risk": 1.0        # Missing low-risk cases (classes 6, 7)
         },
         "false_positive": {  # Unnecessary intervention
             "high_risk": 1.0,      # Acceptable cost for high-risk
@@ -84,21 +84,26 @@ DEFAULT_CONFIG = {
     "clinical_recommendations": {
         "high_risk": [
             "Consider more frequent monitoring (weekly)",
-            "Review medication adherence",
-            "Evaluate need for psychosocial interventions",
-            "Consider family/caregiver involvement",
-            "Monitor for early warning signs of relapse"
+            "Implement strategies to improve medication adherence",
+            "Intensive psychosocial interventions",
+            "Family/caregiver education and involvement",
+            "Regular monitoring for early warning signs of relapse",
+            "Consider case management or assertive community treatment"
         ],
         "moderate_risk": [
             "Increase monitoring frequency (bi-weekly)",
-            "Address modifiable risk factors",
-            "Consider psychosocial support",
-            "Education about early warning signs"
+            "Address specific modifiable risk factors",
+            "Targeted psychosocial support",
+            "Education about early warning signs",
+            "Regular medication review",
+            "Employment/educational support as appropriate"
         ],
         "low_risk": [
             "Maintain standard monitoring schedule",
             "Continue current management plan",
-            "Routine monitoring for changes in status"
+            "Routine monitoring for changes in status",
+            "Focus on functional recovery and social integration",
+            "Gradual transition to less intensive services"
         ]
     },
     
