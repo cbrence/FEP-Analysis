@@ -16,6 +16,147 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import clinical_weights
 
+def get_risk_order():
+    """
+    Return a list of classes ordered by risk level (highest risk first).
+    
+    Returns:
+    --------
+    list : Classes ordered by risk level
+    """
+    from config import clinical_weights
+    
+    # Get classes by risk level
+    high_risk = clinical_weights.HIGH_RISK_CLASSES
+    moderate_risk = clinical_weights.MODERATE_RISK_CLASSES
+    low_risk = clinical_weights.LOW_RISK_CLASSES
+    
+    # Order by risk level: high > moderate > low
+    # Within each level, keep original numerical order
+    ordered_classes = (
+        sorted(high_risk) + 
+        sorted(moderate_risk) + 
+        sorted(low_risk)
+    )
+    
+    # Ensure all 8 classes are included (in case any are missing from risk levels)
+    all_classes = set(range(8))
+    missing_classes = all_classes - set(ordered_classes)
+    
+    return ordered_classes + sorted(list(missing_classes))
+
+
+def get_hardcoded_risk_level(cls_num):
+    """
+    Get the correct risk level based on hardcoded mappings that match the sidebar.
+    
+    Parameters:
+    -----------
+    cls_num : int
+        The class number (0-7)
+        
+    Returns:
+    --------
+    str : One of "high_risk", "moderate_risk", or "low_risk"
+    """
+    # Hardcoded correct risk level assignments
+    high_risk_classes = [0, 1, 2]
+    moderate_risk_classes = [3, 4, 5]
+    low_risk_classes = [6, 7]
+    
+    if cls_num in high_risk_classes:
+        return "high_risk"
+    elif cls_num in moderate_risk_classes:
+        return "moderate_risk"
+    elif cls_num in low_risk_classes:
+        return "low_risk"
+    else:
+        return "unknown"
+
+def get_class_info(config, include_risk_display=True):
+    """
+    Generate consistent class information for display throughout the interface.
+    
+    Parameters:
+    -----------
+    config : dict
+        Current configuration dictionary
+    include_risk_display : bool, default=True
+        Whether to include formatted risk level display string
+        
+    Returns:
+    --------
+    list : List of dictionaries with class information
+    """
+    # Get classes in order from 0-7 for consistent display
+    classes_to_display = list(range(8))
+    
+    class_info = []
+    
+    # Get class information in the determined order
+    for cls in classes_to_display:
+        # Get the class description from config, or use default if missing
+        description = config["class_definitions"].get(str(cls), f"Class {cls}")
+        
+        # Get the correct risk level based on hardcoded mapping
+        risk_level = get_hardcoded_risk_level(cls)
+        
+        # Format risk level for display if requested
+        if include_risk_display:
+            if risk_level == "high_risk":
+                risk_display = "🔴 High Risk"
+            elif risk_level == "moderate_risk":
+                risk_display = "🟠 Moderate Risk"
+            elif risk_level == "low_risk":
+                risk_display = "🟢 Low Risk"
+            else:
+                risk_display = "❓ Unknown"
+        else:
+            risk_display = risk_level
+            
+        # Build class info dictionary
+        info = {
+            "Class": cls,
+            "Description": description,
+            "Risk Level": risk_level,
+            "Risk Display": risk_display
+        }
+        
+        class_info.append(info)
+    
+    # Sort the class info by risk level priority (high to low)
+    # And then by class number within each risk level
+    def sort_key(info):
+        risk_priority = {"high_risk": 0, "moderate_risk": 1, "low_risk": 2, "unknown": 3}
+        return (risk_priority.get(info["Risk Level"], 4), info["Class"])
+    
+    return sorted(class_info, key=sort_key)
+
+def update_class_definitions(config):
+    """
+    Ensure the class definitions in the config match the ones in clinical_weights.py
+    
+    Parameters:
+    -----------
+    config : dict
+        Current configuration dictionary
+        
+    Returns:
+    --------
+    dict : Updated configuration with correct class definitions
+    """
+    from config import clinical_weights
+    
+    # Get the default class definitions from clinical_weights.py
+    default_definitions = clinical_weights.DEFAULT_CONFIG["class_definitions"]
+    
+    # Update the config with these definitions
+    if config["class_definitions"] != default_definitions:
+        config["class_definitions"] = default_definitions.copy()
+    
+    return config
+
+
 def show_config_editor():
     """Display the configuration editor interface."""
     st.header("Clinical Configuration Editor")
@@ -64,6 +205,10 @@ def show_config_editor():
 
 def show_risk_categories(config):
     """Show and edit risk category assignments."""
+
+    # Ensure class definitions are correct
+    config = update_class_definitions(config)
+
     st.subheader("Risk Categories")
     
     st.markdown("""
@@ -71,25 +216,27 @@ def show_risk_categories(config):
     prioritized and how different types of errors are weighted.
     """)
     
-    # Create a mapping of classes to risk levels
-    class_to_risk = {}
-    for risk_level, classes in config["risk_levels"].items():
-        for cls in classes:
-            class_to_risk[cls] = risk_level
+    # Display current risk level assignments from sidebar for reference
+    st.info("""
+    **Current Risk Level Assignments:**
+    - 🔴 High Risk: Classes [0, 1, 2]
+    - 🟠 Moderate Risk: Classes [3, 4, 5]
+    - 🟢 Low Risk: Classes [6, 7]
+    """)
+
+    # Use the helper function to get consistent class info
+    class_info = get_class_info(config, include_risk_display=False)
     
-    # Create a table for editing
-    class_info = []
-    for cls, description in config["class_definitions"].items():
-        class_info.append({
-            "Class": int(cls),
-            "Description": description,
-            "Risk Level": class_to_risk.get(int(cls), "unknown")
-        })
-    
-    df = pd.DataFrame(class_info)
+    # Create a DataFrame for editing
+    df = pd.DataFrame([{
+        "Class": info["Class"],
+        "Description": info["Description"],
+        "Risk Level": info["Risk Level"]
+    } for info in class_info])
     
     # Allow editing of risk levels
     st.markdown("#### Assign Risk Levels")
+    st.markdown("*Each class must be assigned to exactly one risk level*")
     
     edited_df = st.data_editor(
         df,
@@ -120,15 +267,29 @@ def show_risk_categories(config):
             if risk_level in new_risk_levels:
                 new_risk_levels[risk_level].append(int(row["Class"]))
         
-        # Update config
-        updated_config = {"risk_levels": new_risk_levels}
-        if st.button("Save Risk Categories"):
-            clinical_weights.update_config(updated_config)
-            clinical_weights.refresh_from_config()
-            st.success("Risk categories updated successfully!")
+        # Validate that all classes are assigned
+        all_assigned = set(range(8))
+        assigned_classes = set()
+        for classes in new_risk_levels.values():
+            assigned_classes.update(classes)
+        
+        missing_classes = all_assigned - assigned_classes
+        if missing_classes:
+            st.error(f"Classes {missing_classes} are not assigned to any risk level!")
+        else:
+            # Update config
+            updated_config = {"risk_levels": new_risk_levels}
+            if st.button("Save Risk Categories"):
+                clinical_weights.update_config(updated_config)
+                clinical_weights.refresh_from_config()
+                st.success("Risk categories updated successfully!")
 
 def show_class_weights(config):
     """Show and edit class weights."""
+
+    # Ensure class definitions are correct
+    config = update_class_definitions(config)
+
     st.subheader("Class Weights")
     
     st.markdown("""
@@ -137,17 +298,16 @@ def show_class_weights(config):
     correctly identifying that class, even at the cost of more errors in other classes.
     """)
     
-    # Create a table for editing
-    class_info = []
-    for cls, description in config["class_definitions"].items():
-        class_info.append({
-            "Class": int(cls),
-            "Description": description,
-            "Risk Level": clinical_weights.CLASS_TO_RISK_LEVEL.get(int(cls), "unknown"),
-            "Weight": config["class_weights"].get(cls, 1.0)
-        })
+    # Use the helper function to get consistent class info
+    class_info = get_class_info(config)
     
-    df = pd.DataFrame(class_info)
+    # Create DataFrame for editing with a consistent structure
+    df = pd.DataFrame([{
+        "Class": info["Class"],
+        "Description": info["Description"],
+        "Risk Level": info["Risk Display"],
+        "Weight": config["class_weights"].get(str(info["Class"]), 1.0)
+    } for info in class_info])
     
     # Allow editing of weights
     st.markdown("#### Adjust Class Weights")
@@ -187,6 +347,10 @@ def show_class_weights(config):
 
 def show_prediction_thresholds(config):
     """Show and edit prediction thresholds."""
+    # Ensure class definitions are correct
+    config = update_class_definitions(config)
+
+
     st.subheader("Prediction Thresholds")
     
     st.markdown("""
@@ -195,17 +359,17 @@ def show_prediction_thresholds(config):
     may increase false positives. Higher thresholds increase specificity but may miss cases.
     """)
     
-    # Create a table for editing
-    class_info = []
-    for cls, description in config["class_definitions"].items():
-        class_info.append({
-            "Class": int(cls),
-            "Description": description,
-            "Risk Level": clinical_weights.CLASS_TO_RISK_LEVEL.get(int(cls), "unknown"),
-            "Threshold": config["prediction_thresholds"].get(cls, 0.5)
-        })
+    # Use the helper function to get consistent class info
+    class_info = get_class_info(config)
     
-    df = pd.DataFrame(class_info)
+    
+    # Create DataFrame for editing with a consistent structure
+    df = pd.DataFrame([{
+        "Class": info["Class"],
+        "Description": info["Description"],
+        "Risk Level": info["Risk Display"],
+        "Threshold": config["prediction_thresholds"].get(str(info["Class"]), 0.5)
+    } for info in class_info])
     
     # Allow editing of thresholds
     st.markdown("#### Adjust Prediction Thresholds")
@@ -258,9 +422,9 @@ def show_error_costs(config):
     # Create a table for false negative costs
     fn_costs = config["error_costs"]["false_negative"]
     fn_data = [
-        {"Risk Level": "High Risk", "Cost": fn_costs["high_risk"], "Description": "Missing cases that need urgent intervention"},
-        {"Risk Level": "Moderate Risk", "Cost": fn_costs["moderate_risk"], "Description": "Missing cases that may benefit from intervention"},
-        {"Risk Level": "Low Risk", "Cost": fn_costs["low_risk"], "Description": "Missing cases unlikely to need intervention"}
+        {"Risk Level": "🔴 High Risk", "Cost": fn_costs["high_risk"], "Description": "Missing cases that need urgent intervention"},
+        {"Risk Level": "🟠Moderate Risk", "Cost": fn_costs["moderate_risk"], "Description": "Missing cases that may benefit from intervention"},
+        {"Risk Level": "🟢Low Risk", "Cost": fn_costs["low_risk"], "Description": "Missing cases unlikely to need intervention"}
     ]
     
     st.markdown("#### False Negative Costs (Missing Cases)")
@@ -286,9 +450,9 @@ def show_error_costs(config):
     # Create a table for false positive costs
     fp_costs = config["error_costs"]["false_positive"]
     fp_data = [
-        {"Risk Level": "High Risk", "Cost": fp_costs["high_risk"], "Description": "Unnecessary intervention for high-risk pattern"},
-        {"Risk Level": "Moderate Risk", "Cost": fp_costs["moderate_risk"], "Description": "Unnecessary intervention for moderate-risk pattern"},
-        {"Risk Level": "Low Risk", "Cost": fp_costs["low_risk"], "Description": "Unnecessary intervention for low-risk pattern"}
+        {"Risk Level": "🔴High Risk", "Cost": fp_costs["high_risk"], "Description": "Unnecessary intervention for high-risk pattern"},
+        {"Risk Level": "🟠Moderate Risk", "Cost": fp_costs["moderate_risk"], "Description": "Unnecessary intervention for moderate-risk pattern"},
+        {"Risk Level": "🟢Low Risk", "Cost": fp_costs["low_risk"], "Description": "Unnecessary intervention for low-risk pattern"}
     ]
     
     st.markdown("#### False Positive Costs (Unnecessary Interventions)")
@@ -344,7 +508,11 @@ def show_clinical_recommendations(config):
     """)
     
     # Create editors for each risk level
-    for risk_level in ["high_risk", "moderate_risk", "low_risk"]:
+    for risk_level, icon in [
+        ("high_risk", "🔴"), 
+        ("moderate_risk", "🟠"), 
+        ("low_risk", "🟢")]:
+        
         st.markdown(f"#### {risk_level.replace('_', ' ').title()} Recommendations")
         
         # Get current recommendations
@@ -375,6 +543,10 @@ def show_clinical_recommendations(config):
 
 def show_save_load_options(config):
     """Show options for saving and loading configurations."""
+
+    # Ensure class definitions are correct when displaying current configuration
+    config = update_class_definitions(config)
+
     st.subheader("Save and Load Configurations")
     
     st.markdown("""
@@ -438,6 +610,12 @@ def show_save_load_options(config):
                 
                 # Load configuration
                 loaded_config = clinical_weights.load_config(load_path)
+                
+                 # Ensure class definitions match even after loading
+                clinical_weights.update_config({
+                    "class_definitions": clinical_weights.DEFAULT_CONFIG["class_definitions"]
+                })
+                
                 clinical_weights.refresh_from_config()
                 
                 st.success(f"Configuration loaded from {load_path}")
@@ -455,8 +633,29 @@ def show_save_load_options(config):
     
     # Show current configuration as JSON
     st.markdown("#### Current Configuration JSON")
-    st.json(clinical_weights.get_config())
 
+    # Ensure all 8 classes are displayed
+    config_to_display = clinical_weights.get_config()
+    
+    # Use the corrected configuration
+    st.json(config)
+
+    # Ensure all 8 classes are in class_definitions
+    #for cls in range(8):
+    #    if str(cls) not in config_to_display["class_definitions"]:
+    #        config_to_display["class_definitions"][str(cls)] = f"Class {cls}"
+    
+    # Ensure all 8 classes have class weights
+    #for cls in range(8):
+    #    if str(cls) not in config_to_display["class_weights"]:
+    #        config_to_display["class_weights"][str(cls)] = 1.0
+    
+    # Ensure all 8 classes have prediction thresholds
+    #for cls in range(8):
+    #    if str(cls) not in config_to_display["prediction_thresholds"]:
+    #        config_to_display["prediction_thresholds"][str(cls)] = 0.5
+    
+    #st.json(config_to_display)
 
 if __name__ == "__main__":
     show_config_editor()

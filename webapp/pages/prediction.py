@@ -218,37 +218,61 @@ def show_prediction_tool(models):
         # Here we'll simulate prediction based on input values
         
         # Create simulated probabilities based on inputs
-        # Higher P1, G12, early warning signs increase risk of classes 0 and 3
+        # Higher P1, G12, early warning signs increase risk of classes 0, 1, 2
         high_risk_factor = ((p1-1)/6 + (g12-1)/6 + warning_risk) / 3
         high_risk_factor = max(0.1, min(0.9, high_risk_factor))
-        
+
+        # Treatment adherence factor (lower means worse adherence)
+        adherence_factor = 1.0 - (1.0 if med_adherence else 0.0) / 2
+        adherence_factor = max(0.2, min(0.8, adherence_factor))
+
+        # Social functioning factor (lower means worse functioning)
+        social_factor = 1.0 - ((n4-1)/6 + (g16-1)/6) / 2
+        social_factor = max(0.2, min(0.8, social_factor))
+
+        # Initialize with small baseline probabilities
+        class_probs = {
+            0: 0.05,  # No remission at 6 & 12 months, Poor adherence (Highest risk)
+            1: 0.05,  # No remission at 6 & 12 months, Moderate adherence (Very high risk)
+            2: 0.05,  # Remission at 6 months, No at 12 - Early relapse with functional decline (High risk)
+            3: 0.05,  # No remission at 6, Remission at 12, Poor adherence (Moderate-high risk)
+            4: 0.05,  # Remission at 6, No at 12, Maintained functioning (Moderate risk)
+            5: 0.05,  # No remission at 6, Remission at 12, Good adherence (Moderate-low risk)
+            6: 0.05,  # Remission at 6 & 12 months with residual symptoms (Low risk)
+            7: 0.05   # Remission at 6 & 12 months, Full recovery (Lowest risk)
+            }
+
+
         if early_warning_count >= 3 or p1 >= 5 or g12 >= 5:
             # High risk profile
-            class_probs = {
-                0: 0.40 * high_risk_factor,  # No remission
-                1: 0.30 * (1 - high_risk_factor),  # Sustained remission
-                2: 0.10,  # Late remission
-                3: 0.30 * high_risk_factor,  # Early relapse
-                6: 0.10
-            }
+            class_probs[0] = 0.30 * high_risk_factor * (1 - adherence_factor)  # Highest risk - poor adherence
+            class_probs[1] = 0.25 * high_risk_factor * adherence_factor  # Very high risk - moderate adherence
+            class_probs[2] = 0.20 * high_risk_factor  # Early relapse with functional decline
+            class_probs[3] = 0.10 * (1 - social_factor)  # Late remission, poor adherence
+            class_probs[4] = 0.05 * social_factor  # Early non-sustained remission, maintained functioning
+            class_probs[5] = 0.05 * adherence_factor  # Late remission, good adherence
+            class_probs[6] = 0.03 * (1 - high_risk_factor)  # Sustained with residual
+            class_probs[7] = 0.02 * (1 - high_risk_factor)  # Full recovery
         elif early_warning_count >= 1 or p1 >= 3 or g12 >= 3:
             # Moderate risk profile
-            class_probs = {
-                0: 0.20 * high_risk_factor,
-                1: 0.40 * (1 - high_risk_factor),
-                2: 0.20,
-                3: 0.15 * high_risk_factor,
-                6: 0.05
-            }
+            class_probs[0] = 0.15 * high_risk_factor * (1 - adherence_factor)
+            class_probs[1] = 0.10 * high_risk_factor * adherence_factor
+            class_probs[2] = 0.10 * high_risk_factor
+            class_probs[3] = 0.15 * (1 - social_factor)
+            class_probs[4] = 0.15 * social_factor
+            class_probs[5] = 0.15 * adherence_factor
+            class_probs[6] = 0.10 * (1 - high_risk_factor)
+            class_probs[7] = 0.10 * (1 - high_risk_factor)
         else:
             # Low risk profile
-            class_probs = {
-                0: 0.10 * high_risk_factor,
-                1: 0.60 * (1 - high_risk_factor),
-                2: 0.15,
-                3: 0.10 * high_risk_factor,
-                6: 0.05
-            }
+            class_probs[0] = 0.05 * high_risk_factor * (1 - adherence_factor)
+            class_probs[1] = 0.05 * high_risk_factor * adherence_factor
+            class_probs[2] = 0.05 * high_risk_factor
+            class_probs[3] = 0.10 * (1 - social_factor)
+            class_probs[4] = 0.10 * social_factor
+            class_probs[5] = 0.15 * adherence_factor
+            class_probs[6] = 0.20 * (1 - high_risk_factor)
+            class_probs[7] = 0.30 * (1 - high_risk_factor)
         
         # Normalize probabilities to sum to 1
         total_prob = sum(class_probs.values())
@@ -284,7 +308,7 @@ def show_prediction_tool(models):
         # Display clinical interpretation
         st.subheader("Clinical Interpretation")
         
-        if predicted_class in [0, 3]:  # High risk classes
+        if predicted_class in [0, 1, 2]:  # High risk classes
             st.markdown("""
             This patient shows a **high-risk pattern** with significant probability of non-remission or early relapse. 
             The following clinical considerations are important:
@@ -298,7 +322,7 @@ def show_prediction_tool(models):
             if early_warning_count >= 2:
                 st.error("⚠️ **ALERT:** Multiple early warning signs detected. Immediate clinical review recommended.")
                 
-        elif predicted_class in [2, 6]:  # Moderate risk classes
+        elif predicted_class in [3, 4, 5]:  # Moderate risk classes
             st.markdown("""
             This patient shows a **moderate-risk pattern** with partial or inconsistent remission predicted.
             The following clinical considerations may be helpful:

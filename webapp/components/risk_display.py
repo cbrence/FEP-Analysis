@@ -18,6 +18,23 @@ import base64
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
+
+CLASS_COLORS = {
+    0: '#b30000',  # Dark red
+    1: '#e60000',  # Red
+    2: '#ff1a1a',  # Light red
+    3: '#ff8000',  # Dark orange
+    4: '#ffa64d',  # Orange
+    5: '#ffcc00',  # Yellow-orange
+    6: '#67e667',  # Light green
+    7: '#2eb82e'   # Dark green
+}
+
+def get_class_color(class_num):
+    """Get the color for a specific class."""
+    return CLASS_COLORS.get(class_num, '#1f77b4')  # Default to blue if class not found
+
+
 def display_probability_bars(probabilities: Dict[str, float],
                            title: str = "Outcome Probabilities",
                            threshold: Optional[float] = None,
@@ -60,6 +77,15 @@ def display_probability_bars(probabilities: Dict[str, float],
         tooltip=['Outcome:N', 'Probability:Q']
     )
     
+    if isinstance(df['Outcome'].iloc[0], (int, np.integer)) or df['Outcome'].iloc[0].isdigit():
+        # If outcomes are class numbers, use class colors
+        class_colors = [get_class_color(int(outcome)) for outcome in df['Outcome']]
+
+        bars = base.mark_bar().encode(
+        x=alt.X('Probability:Q', scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color('Outcome:N', scale=alt.Scale(domain=list(df['Outcome']), range=class_colors))
+    )
+
     # Create the bars with conditional coloring if threshold is provided
     if threshold is not None:
         # Define color based on threshold
@@ -118,6 +144,7 @@ def display_probability_bars(probabilities: Dict[str, float],
 def display_risk_timeline(timestamps: Union[List, np.ndarray],
                          risk_scores: Union[List[float], np.ndarray],
                          patient_ids: Optional[Union[List, np.ndarray]] = None,
+                         class_labels: Optional[Union[List[int], np.ndarray]] = None,  
                          events: Optional[List[Dict[str, Any]]] = None,
                          title: str = "Risk Score Timeline",
                          threshold: Optional[float] = None,
@@ -136,6 +163,8 @@ def display_risk_timeline(timestamps: Union[List, np.ndarray],
         Predicted risk scores at each time point
     patient_ids : Optional[Union[List, np.ndarray]], default=None
         Patient identifiers if multiple patients
+    class_labels : Optional[Union[List[int], np.ndarray]], default=None
+        Class labels (0-7) corresponding to each time point for color coding
     events : Optional[List[Dict[str, Any]]], default=None
         List of events to mark on the timeline.
         Each event should be a dict with at least 'time' and 'label' keys.
@@ -244,8 +273,17 @@ def display_risk_timeline(timestamps: Union[List, np.ndarray],
                 high_risk_times = [t for t, above in zip(timestamps, above_threshold) if above]
                 high_risk_scores = [s for s, above in zip(risk_scores, above_threshold) if above]
                 
-                ax.scatter(high_risk_times, high_risk_scores, color='red', s=80, zorder=5, 
-                          label='High Risk', edgecolor='darkred')
+                if 'class_labels' in locals() and class_labels is not None:
+                    # Filter class labels for above-threshold points
+                    high_risk_classes = [c for c, above in zip(class_labels, above_threshold) if above]
+                    # Use class-specific colors for each point
+                    for t, s, c in zip(high_risk_times, high_risk_scores, high_risk_classes):
+                        ax.scatter(t, s, color=get_class_color(c), s=80, zorder=5, 
+                                edgecolor='black')
+                else:
+                     # Default coloring when class labels aren't available
+                    ax.scatter(high_risk_times, high_risk_scores, color='red', s=80, zorder=5, 
+                            label='High Risk', edgecolor='darkred')
         
         # Add events if provided
         if events:
@@ -508,8 +546,18 @@ def display_risk_stratification(risk_scores: Union[List[float], np.ndarray],
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # Create colormap
-    colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
-    
+    #colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
+    if 'class' in df.columns:
+    # Use class-specific colors if class column exists
+        colors = [get_class_color(cls) for cls in df['class']]
+    else:
+    # Create colors based on risk level names
+        risk_colors = {
+            'High Risk': '#ff1a1a',
+            'Moderate Risk': '#ffa64d',
+            'Low Risk': '#67e667'
+        }
+    colors = [risk_colors.get(stratum, plt.cm.viridis(i/len(df))) for i, stratum in enumerate(df['Stratum'])]
     # Plot horizontal bars
     bars = ax.barh(df['Stratum'], df['Count'], color=colors)
     
@@ -632,7 +680,10 @@ def display_risk_map(x_values: Union[List[float], np.ndarray],
         chart = alt.Chart(data).mark_circle(size=point_size).encode(
             x=alt.X('x:Q', title=x_label),
             y=alt.Y('y:Q', title=y_label),
-            color=alt.Color('risk:Q', title='Risk Score', scale=alt.Scale(scheme='viridis')),
+            color=alt.Color('class:N', scale=alt.Scale(domain=list(CLASS_COLORS.keys()),
+            range=list(CLASS_COLORS.values())
+            )),
+            #color=alt.Color('risk:Q', title='Risk Score', scale=alt.Scale(scheme='viridis')),
             shape=alt.Shape('class:N', title='Class'),
             tooltip=['x:Q', 'y:Q', 'risk:Q', 'class:N']
         )
@@ -823,7 +874,11 @@ def _display_factor_card(factor: pd.Series,
         Whether to show descriptions
     """
     # Determine color based on factor type
-    color = "red" if factor_type == "risk" else "green"
+    # Determine color based on factor type or class if available    
+    if 'class' in factor and factor['class'] is not None:
+        color = get_class_color(factor['class'])
+    else:
+        color = "red" if factor_type == "risk" else "green"
     
     # Create columns for layout
     col1, col2 = st.columns([4, 1])

@@ -195,15 +195,33 @@ class BaseFEPModel(ABC, BaseEstimator, ClassifierMixin):
         
         # Convert to array and check input data
         if isinstance(X, pd.DataFrame):
+            # If we have feature_names_, try to use only those features if available
+            if hasattr(self, 'feature_names_') and self.feature_names_ is not None:
+                common_features = [f for f in self.feature_names_ if f in X.columns]
+                if len(common_features) == self.n_features_in_:
+                    X = X[common_features]
+                    logger.info(f"Selected {len(common_features)} matching features for prediction")
+                elif len(common_features) > 0:
+                    logger.warning(f"Only found {len(common_features)} of {self.n_features_in_} expected features")
+                    # Continue with what we have - will be caught by the feature count check below
+                else:
+                    logger.warning("No matching features found between model and input data")
+            
             X_array = X.values
         else:
             X_array = X
         
         X_array = check_array(X_array)
         
-        # Check feature count
+        # Handle feature count mismatch
         if X_array.shape[1] != self.n_features_in_:
-            raise ValueError(f"X has {X_array.shape[1]} features, but {self.model_name} is expecting {self.n_features_in_} features")
+            if X_array.shape[1] > self.n_features_in_:
+                # If we have more features than needed, use only the first n_features_in_ features
+                logger.warning(f"X has {X_array.shape[1]} features, but {self.model_name} is expecting {self.n_features_in_} features. Using first {self.n_features_in_} features.")
+                X_array = X_array[:, :self.n_features_in_]
+            else:
+                # If we have fewer features than needed, this is a more serious problem
+                raise ValueError(f"X has {X_array.shape[1]} features, but {self.model_name} is expecting {self.n_features_in_} features")
         
         # Return probabilities - implementation depends on the specific model
         return self._predict_proba_implementation(X_array)

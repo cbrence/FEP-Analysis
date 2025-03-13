@@ -7,67 +7,104 @@ import os
 import pandas as pd
 import numpy as np
 
-def load_data(file_path="./data/raw/fep_dataset.csv"):
+def load_data(file_path=None, data_dir=None):
     """
     Load FEP dataset from CSV file.
     
     Parameters
     ----------
-    file_path : str, default="./data/raw/fep_dataset.csv"
-        Path to the CSV file
+    file_path : str, default=None
+        Path to the CSV file. If None, will look in standard locations.
+    data_dir : str, default=None
+        Directory containing the data files. If None, looks in current directory
+        and standard data locations.
         
     Returns
     -------
     pd.DataFrame
         DataFrame containing the FEP dataset
-    
-    Notes:
-    ------
-    The FEP dataset contains 162 rows and 56 columns including:
-    - Demographic information (Age, Gender, Ethnicity, etc.)
-    - Clinical information (Admitted_Hosp, Depression_Severity, etc.)
-    - PANSS scores (P1-P7, N1-N7, G1-G16)
-    - Outcome measures (M6_Rem, Y1_Rem, Y1_Rem_6, etc.)
-
-
     """
-    import pandas as pd
-    return pd.read_csv(file_path)
-
-          
-    # If file_path is provided, use it directly
+    # DIRECT FIX: Hard-code the path to the known location
+    raw_data_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                "data", "raw", "fep_dataset.csv")
+    
+    # Try the known location first
+    if os.path.exists(raw_data_path):
+        print(f"Loading dataset from: {raw_data_path}")
+        return pd.read_csv(raw_data_path)
+    
+    # If file_path is provided, try it directly
     if file_path is not None:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"FEP dataset file not found at: {file_path}")
-        return pd.read_csv(file_path)
+        if os.path.exists(file_path):
+            print(f"Loading dataset from provided path: {file_path}")
+            return pd.read_csv(file_path)
+        else:
+            print(f"Warning: Provided file path does not exist: {file_path}")
     
-    # Otherwise, search in data_dir or standard locations
-    search_paths = []
+    # Try looking in the raw subdirectory 
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    raw_path = os.path.join(project_root, "data", "raw", "fep_dataset.csv")
     
-    # Add data_dir if provided
-    if data_dir is not None:
-        search_paths.append(os.path.join(data_dir, "fep_dataset.csv"))
+    if os.path.exists(raw_path):
+        print(f"Loading dataset from raw directory: {raw_path}")
+        return pd.read_csv(raw_path)
     
-    # Add current directory
-    search_paths.append("fep_dataset.csv")
+    # If still not found, adjust the path to look for raw folder relative to current directory
+    current_dir = os.getcwd()
+    print(f"Current working directory: {current_dir}")
     
-    # Add standard data locations
-    search_paths.extend([
-        os.path.join("data", "fep_dataset.csv"),
-        os.path.join("fep_analysis", "data", "fep_dataset.csv"),
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "fep_dataset.csv")
-    ])
+    # Generate potential paths
+    potential_paths = [
+        os.path.join(current_dir, "data", "raw", "fep_dataset.csv"),
+        os.path.join(current_dir, "raw", "fep_dataset.csv"),
+        os.path.join(current_dir, "data", "fep_dataset.csv"),
+        os.path.join(current_dir, "fep_dataset.csv")
+    ]
     
-    # Try each path
-    for path in search_paths:
-        if os.path.exists(path):
+    # Print all potential paths for debugging
+    print("Checking the following paths:")
+    for path in potential_paths:
+        exists = os.path.exists(path)
+        print(f"  - {path} {'(exists)' if exists else '(not found)'}")
+        if exists:
+            print(f"Loading dataset from: {path}")
             return pd.read_csv(path)
     
+    # Look for any CSV file in the raw directory
+    raw_dir = os.path.join(current_dir, "data", "raw")
+    if os.path.exists(raw_dir):
+        print(f"Checking for CSV files in: {raw_dir}")
+        for filename in os.listdir(raw_dir):
+            if filename.endswith(".csv"):
+                dataset_path = os.path.join(raw_dir, filename)
+                print(f"Found CSV file: {dataset_path}")
+                return pd.read_csv(dataset_path)
+    
+    # DIRECT MODIFICATION: If the default path from the error message exists, fix it
+    error_path = r"C:\Users\cbren\Projects\FEP-Analysis\data\fep_dataset.csv" 
+    raw_error_path = r"C:\Users\cbren\Projects\FEP-Analysis\data\raw\fep_dataset.csv"
+    
+    if os.path.exists(raw_error_path):
+        print(f"Loading dataset from: {raw_error_path}")
+        return pd.read_csv(raw_error_path)
+    
+    if not os.path.exists(error_path) and os.path.exists(raw_error_path):
+        # Create a symbolic link or copy
+        try:
+            # Try to create a symbolic link first
+            import shutil
+            print(f"Copying dataset from raw folder to expected location")
+            os.makedirs(os.path.dirname(error_path), exist_ok=True)
+            shutil.copy2(raw_error_path, error_path)
+            print(f"Dataset copied to: {error_path}")
+            return pd.read_csv(error_path)
+        except Exception as e:
+            print(f"Error copying file: {str(e)}")
+    
     # If we get here, the file wasn't found
-    raise FileNotFoundError(f"FEP dataset file not found. Searched in: {search_paths}")
+    raise FileNotFoundError(f"FEP dataset file not found. Please ensure it exists at {raw_path} or provide the correct path.")
 
 def get_dataset_info(df=None, file_path=None):
-
     """
     Print information about the FEP dataset.
     
@@ -235,53 +272,68 @@ def load_and_prepare_data(file_path=None, data_dir=None, rename_panss=True, drop
 
 def create_multiclass_label(df):
     """
-    Create a multiclass label based on remission patterns.
+    Create a multiclass label from 'M6_Rem', 'Y1_Rem', and 'Y1_Rem_6' columns.
+    Maps combinations to integers 0-7 based on clinical meaning.
     
     Parameters:
     -----------
     df : pandas.DataFrame
-        DataFrame containing at least the columns 'Y1_Rem', 'M6_Rem', 'Y1_Rem_6'.
+        DataFrame containing 'M6_Rem', 'Y1_Rem', and 'Y1_Rem_6' columns
         
     Returns:
     --------
-    pandas.DataFrame : DataFrame with an additional 'label' column
+    pandas.DataFrame
+        DataFrame with additional 'label' column containing integer class label
     """
-    # Create a copy to avoid modifying the original
-    df_with_label = df.copy()
+    # Create a copy of the dataframe to avoid modifying the original
+    result_df = df.copy()
     
-    # Ensure the remission columns are binary (0/1)
-    for col in ['Y1_Rem', 'M6_Rem', 'Y1_Rem_6']:
-        if col in df.columns:
-            if df[col].dtype == object:
-                # Convert Yes/No to 1/0
-                df_with_label[col] = df_with_label[col].map({'Y': 1, 'N': 0})
+    # Handle missing values first - fill NaN with 'Missing'
+    for col in ['M6_Rem', 'Y1_Rem', 'Y1_Rem_6']:
+        if col in result_df.columns:
+            result_df[col] = result_df[col].fillna('Missing')
     
-    # Create the multiclass label
-    labels = []
+    # Create a temporary column combining all three values
+    result_df['temp_combo'] = (
+        result_df['M6_Rem'].astype(str) + '_' + 
+        result_df['Y1_Rem'].astype(str) + '_' + 
+        result_df['Y1_Rem_6'].astype(str)
+    )
     
-    for idx, row in df_with_label.iterrows():
-        if pd.isna(row['Y1_Rem']) or pd.isna(row['M6_Rem']) or pd.isna(row['Y1_Rem_6']):
-            labels.append(np.nan)
-        elif row['Y1_Rem'] == 0 and row['M6_Rem'] == 0 and row['Y1_Rem_6'] == 0:
-            labels.append(0)  # No remission at any point
-        elif row['Y1_Rem'] == 1 and row['M6_Rem'] == 1 and row['Y1_Rem_6'] == 1:
-            labels.append(1)  # Sustained remission
-        elif row['Y1_Rem'] == 1 and row['M6_Rem'] == 0 and row['Y1_Rem_6'] == 0:
-            labels.append(2)  # Late remission only
-        elif row['Y1_Rem'] == 1 and row['M6_Rem'] == 1 and row['Y1_Rem_6'] == 0:
-            labels.append(3)  # Early remission, not sustained
-        elif row['Y1_Rem'] == 1 and row['M6_Rem'] == 0 and row['Y1_Rem_6'] == 1:
-            labels.append(4)  # Late sustained remission
-        elif row['Y1_Rem'] == 0 and row['M6_Rem'] == 1 and row['Y1_Rem_6'] == 0:
-            labels.append(5)  # Early remission only
-        elif row['Y1_Rem'] == 0 and row['M6_Rem'] == 1 and row['Y1_Rem_6'] == 1:
-            labels.append(6)  # Early sustained, late relapse
-        elif row['Y1_Rem'] == 0 and row['M6_Rem'] == 0 and row['Y1_Rem_6'] == 1:
-            labels.append(7)  # Sustained remission after Y1
-        else:
-            labels.append(np.nan)  # Should not happen if data is clean
+    # Define the mapping based on clinical meaning of each pattern
+    # This is based on CLASS_NAMES in your code:
+    # 0: "No remission (Poor adherence)"
+    # 1: "No remission (Moderate adherence)"
+    # 2: "Early Relapse with functional decline"
+    # 3: "Late remission (Poor adherence)"
+    # 4: "Early non-sustained remission"
+    # 5: "Late remission (Good adherence)"
+    # 6: "Sustained with residual"
+    # 7: "Full recovery"
     
-    df_with_label['label'] = labels
+    # Map combinations to class labels
+    combo_to_label = {
+        'No_No_No': 0,        # No remission at M6 or Y1
+        'No_No_Missing': 0,   # No remission at M6 or Y1
+        'No_Missing_Missing': 1, # No remission at M6, unknown at Y1
+        'No_Yes_Yes': 3,      # No remission at M6, Yes at Y1 (late remission)
+        'No_Yes_No': 4,       # No remission at M6, Yes at Y1 but not sustained (Y1_Rem_6=No)
+        'Missing_Missing_Missing': 2, # Unknown (treated as early relapse)
+        'Yes_No_No': 2,       # Yes at M6, No at Y1 (early relapse)
+        'Yes_No_Missing': 2,  # Yes at M6, No at Y1 (early relapse)
+        'Yes_Missing_Missing': 6, # Yes at M6, unknown at Y1 (treated as sustained with residual)
+        'Yes_Yes_No': 4,      # Yes at M6 and Y1, but not sustained
+        'Yes_Yes_Yes': 7,     # Yes at M6 and Y1, and sustained (full recovery)
+        'Missing_Yes_Yes': 5, # Unknown at M6, Yes at Y1 (late remission, good adherence)
+        'Missing_No_No': 0,   # Unknown at M6, No at Y1 (treated as no remission)
+        'Missing_Yes_No': 4,  # Unknown at M6, Yes at Y1 but not sustained
+    }
+    
+    # Apply the mapping, default to class 2 (early relapse) for any unmapped combinations
+    result_df['label'] = result_df['temp_combo'].map(lambda x: combo_to_label.get(x, 2))
+    
+    # Drop the temporary column
+    df_with_label = result_df.drop('temp_combo', axis=1)
     
     return df_with_label
 

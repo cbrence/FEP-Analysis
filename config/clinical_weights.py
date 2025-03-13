@@ -338,6 +338,17 @@ def refresh_from_config():
     global CLASS_WEIGHTS, PREDICTION_THRESHOLDS, ERROR_COSTS, RISK_STRATIFICATION
     global CLINICAL_RECOMMENDATIONS, TIME_DISCOUNT_FACTOR, CLASS_TO_RISK_LEVEL
     
+    # Ensure class definitions are integers
+    CLASS_DEFINITIONS = {int(k): v for k, v in _ACTIVE_CONFIG["class_definitions"].items()}
+
+    # Ensure risk level classes are integers
+    HIGH_RISK_CLASSES = [int(cls) if isinstance(cls, str) else cls 
+                         for cls in _ACTIVE_CONFIG["risk_levels"]["high_risk"]]
+    MODERATE_RISK_CLASSES = [int(cls) if isinstance(cls, str) else cls 
+                             for cls in _ACTIVE_CONFIG["risk_levels"]["moderate_risk"]]
+    LOW_RISK_CLASSES = [int(cls) if isinstance(cls, str) else cls 
+                         for cls in _ACTIVE_CONFIG["risk_levels"]["low_risk"]]
+
     # Update all module-level variables
     CLASS_DEFINITIONS = {int(k): v for k, v in _ACTIVE_CONFIG["class_definitions"].items()}
     HIGH_RISK_CLASSES = _ACTIVE_CONFIG["risk_levels"]["high_risk"]
@@ -350,3 +361,6 @@ def refresh_from_config():
     CLINICAL_RECOMMENDATIONS = _ACTIVE_CONFIG["clinical_recommendations"]
     TIME_DISCOUNT_FACTOR = _ACTIVE_CONFIG["time_discount_factor"]
     CLASS_TO_RISK_LEVEL = {cls: get_risk_level(cls) for cls in CLASS_DEFINITIONS.keys()}
+
+    # Rebuild CLASS_TO_RISK_LEVEL with consistent integer keys
+    CLASS_TO_RISK_LEVEL = {int(cls): get_risk_level(int(cls)) for cls in CLASS_DEFINITIONS.keys()}
