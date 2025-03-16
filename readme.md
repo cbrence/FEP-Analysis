@@ -2,6 +2,8 @@
 
 This project implements machine learning models to predict remission outcomes in First Episode Psychosis (FEP) patients, with a specific focus on preventing relapse through cost-sensitive learning approaches.
 
+This project is based on an older project done in 2021 as part of Prof. Andrew Treadway's CIS 9660 Data Mining course at CUNY Baruch. Additional enhancements have been added such as modularization and dashboards for use by non-technical users. 
+
 ## Project Overview
 
 Based on the results our models, First Episode Psychosis outcomes are typically categorized into several patterns based on remission at different time points:
@@ -18,9 +20,9 @@ Based on the results our models, First Episode Psychosis outcomes are typically 
 This project addresses the **asymmetric costs of errors** in FEP prediction:
 
 - Missing a potential relapse (false negative) can lead to devastating consequences (job loss, social isolation, self-harm, suicide)
-- Unnecessary interventions (false positives) can cause side effects or other harms but are generally less severe
+- Unnecessary interventions (false positives) can cause side effects or other harms (such as unnecessary hospitalization, weight gain due to increased anti-psychotic dosage, etc.), but are generally less severe.
 
-The models and evaluation metrics have been specifically designed to prioritize the correct identification of high-risk cases.
+Thus, models and evaluation metrics have been specifically designed to prioritize the correct identification of high-risk cases.
 
 ## Key Features
 
@@ -161,16 +163,18 @@ The cost-sensitive approach in this project has several clinical implications:
 
 This project is informed by research on FEP outcomes and relapse prevention:
 
-- Research on Duration of Untreated Psychosis (DUP) shows modest but meaningful association between shorter DUP and better outcomes
-- Evidence suggests that treating "Ultra High Risk" populations shows modest effects in delaying transition to psychosis
-- The distinction between insidious onset and sudden onset has prognostic significance
-- Different approaches may be needed for BLIPS (Brief Limited Intermittent Psychotic Symptoms) versus Schizophreniform disorder
+- Research by Leighton et al. (2019) demonstrating the ability for machine learning approaches to predict one-year outcomes in First Episode Psychosis 
+- Research on Duration of Untreated Psychosis (DUP) that shows modest but meaningful association between shorter DUP and better outcomes
 
 ## Contributors
 
-- [Your Name]
-- [Other Contributors]
+- Brence, Colin (updated project)
+- Reybol, Antonio Jr.; Zhang, Xuewei; Zhang, Yilei (original CIS 9660 project)
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## References
+
+Leighton, S. P., Krishnadas, R., Chung, K., Blair, A., Brown, S., Clark, S., Sowerbutts, K., Schwannauer, M., Cavanagh, J., & Gumley, A. I. (2019). Predicting one-year outcome in first episode psychosis using machine learning. PLOS ONE, 14(3), e0212846. https://doi.org/10.1371/journal.pone.0212846
