@@ -1,42 +1,29 @@
 """
-Script to retrain FEP models with the current feature preprocessing pipeline.
-
-This script loads data, preprocesses it using the same pipeline as your dashboard,
-and retrains all model types to be compatible with the current feature set.
+Script to retrain all FEP models using the exact preprocessing from the dashboard.
+This ensures complete feature compatibility.
 """
 import os
 import sys
 import numpy as np
 import pandas as pd
 import joblib
-import sklearn
-import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Add project root to path to ensure imports work correctly
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
-# Import FEP-specific models and utilities
+# Import the needed classes
 from models.logistic import LogisticRegressionFEP
 from models.decision_tree import DecisionTreeFEP
 from models.gradient_boosting import GradientBoostingFEP
 from models.ensemble import HighRiskFocusedEnsemble
 from data.loader import load_data, create_multiclass_label
 
+# Copy the exact preprocessing function from your dashboard
 def preprocess_for_ml(df):
     """
-    Preprocess the dataset for machine learning.
-    
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        DataFrame with the label column
-        
-    Returns:
-    --------
-    pandas.DataFrame
-        Preprocessed DataFrame ready for ML
+    Preprocess the dataset for machine learning using the dashboard's preprocessing.
     """
     # Create a copy to avoid modifying the original
     df_processed = df.copy()
@@ -60,37 +47,21 @@ def preprocess_for_ml(df):
     for col in categorical_cols:
         df_processed[col] = df_processed[col].fillna(df_processed[col].mode()[0])
     
-    # Step 3: One-hot encode categorical columns
-    # Exclude the target columns (M6_Rem, Y1_Rem, Y1_Rem_6) if they exist
-    target_cols = ['M6_Rem', 'Y1_Rem', 'Y1_Rem_6']
-    encoding_cols = [col for col in categorical_cols if col not in target_cols]
-    
-    # One-hot encode the categorical columns
-    for col in encoding_cols:
-        # Create dummy variables (one-hot encoding)
-        dummies = pd.get_dummies(df_processed[col], prefix=col, drop_first=False)
-        # Add the dummy variables to the dataframe
-        df_processed = pd.concat([df_processed, dummies], axis=1)
-        # Drop the original categorical column
-        df_processed = df_processed.drop(col, axis=1)
-    
-    # Optional: Drop the original target columns that were used to create the label
-    for col in target_cols:
-        if col in df_processed.columns:
-            df_processed = df_processed.drop(col, axis=1)
+    # Step 3: Keep only numeric columns - THIS IS THE KEY DIFFERENCE
+    # We're completely avoiding categorical encoding to match the dashboard
+    df_processed = df_processed[numeric_cols + (['label'] if 'label' in df_processed.columns else [])]
     
     # Ensure the label column is an integer
     if 'label' in df_processed.columns:
         df_processed['label'] = df_processed['label'].astype(int)
     
-    print(f"Preprocessed {len(numeric_cols)} numeric columns and {len(encoding_cols)} categorical columns")
-    print(f"Final dataset has {df_processed.shape[1]} features")
+    print(f"Preprocessed data has {df_processed.shape[1]} columns (including label)")
     
     return df_processed
 
-def retrain_models():
-    """Retrain all models with the current feature set."""
-    print("Starting FEP model retraining with current feature set...")
+def retrain_with_dashboard_preprocessing():
+    """Retrain models using the exact dashboard preprocessing."""
+    print("Starting FEP model retraining with dashboard preprocessing...")
     
     # Step 1: Load data
     print("Loading raw data...")
@@ -116,8 +87,8 @@ def retrain_models():
     for cls, count in label_counts.items():
         print(f"Class {cls}: {count} samples ({count/len(data_with_label)*100:.1f}%)")
     
-    # Step 3: Preprocess data
-    print("\nPreprocessing data...")
+    # Step 3: Preprocess data using dashboard preprocessing
+    print("\nPreprocessing data with dashboard preprocessing...")
     processed_data = preprocess_for_ml(data_with_label)
     
     # Step 4: Split into training and test sets
@@ -138,14 +109,14 @@ def retrain_models():
     models = {
         "logistic_regression": LogisticRegressionFEP(
             class_weight='clinical',
-            cv=5,  # Reduced for faster training
+            cv=5,
             random_state=42
         ),
         "decision_tree": DecisionTreeFEP(
             class_weight='clinical',
             random_state=42,
             param_grid={
-                "max_depth": range(2, 6),  # Simplified grid
+                "max_depth": range(2, 6),
                 "min_samples_leaf": range(5, 35, 10),
                 "min_samples_split": range(5, 50, 15)
             }
@@ -153,7 +124,7 @@ def retrain_models():
         "gradient_boosting": GradientBoostingFEP(
             class_weight='clinical',
             random_state=42,
-            n_iter=10  # Reduced for faster training
+            n_iter=10
         ),
         "high_risk_ensemble": HighRiskFocusedEnsemble(
             random_state=42
@@ -164,7 +135,7 @@ def retrain_models():
     print("\nTraining models...")
     
     # Create output directory
-    models_dir = os.path.join(project_root, "models", "trained")
+    models_dir = os.path.join(project_root, "models", "dashboard_trained")
     os.makedirs(models_dir, exist_ok=True)
     
     for name, model in models.items():
@@ -189,20 +160,14 @@ def retrain_models():
             import traceback
             print(traceback.format_exc())
     
-    print("\nModel retraining complete. All models now compatible with current feature dataset.")
+    print("\nModel retraining complete with dashboard preprocessing.")
     return True
 
 if __name__ == "__main__":
-    # Add some command line flags if needed
-    import argparse
-    parser = argparse.ArgumentParser(description='Retrain FEP models with current feature set')
-    parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
-    args = parser.parse_args()
-    
-    success = retrain_models()
+    success = retrain_with_dashboard_preprocessing()
     
     if success:
-        print("\nModels were successfully retrained and saved to models/trained directory")
-        print("They will now be compatible with the current feature dataset")
+        print("\nModels were successfully retrained and saved to models/dashboard_trained directory")
+        print("They will now be compatible with your dashboard preprocessing")
     else:
         print("\nError: Model retraining failed")
