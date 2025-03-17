@@ -17,8 +17,8 @@ from sklearn.tree import DecisionTreeClassifier
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import clinical_weights
-from webapp.pages import home, prediction, model_comparison, feature_importance, config_interface
-from webapp.pages.model_comparison import load_fep_dataset
+from webapp.components import home, prediction, model_comparison, feature_importance, config_interface
+from webapp.components.model_comparison import load_fep_dataset
 
 def load_models():
     """

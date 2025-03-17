@@ -3,10 +3,10 @@
 Page modules for the FEP prediction dashboard.
 """
 
-from .pages.home import render_home_page
-from .pages.prediction import show_prediction_tool
-from .pages.model_comparison import show_model_comparison
-from .pages.feature_importance import display_feature_importance
+from .components.home import render_home_page
+from .components.prediction import show_prediction_tool
+from .components.model_comparison import show_model_comparison
+from .components.feature_importance import display_feature_importance
 
 __all__ = [
     'show_home',
