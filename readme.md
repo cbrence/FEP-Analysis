@@ -121,7 +121,7 @@ fep_analysis/
 
 ```bash
 cd webapp
-streamlit run app.py
+streamlit run app_update.py
 ```
 
 ### Using the Models
