@@ -2,11 +2,11 @@
 
 This project implements machine learning models to predict remission outcomes in First Episode Psychosis (FEP) patients, with a specific focus on preventing relapse through cost-sensitive learning approaches.
 
-This project is based on an older project done in 2021 as part of Prof. Andrew Treadway's CIS 9660 Data Mining course at CUNY Baruch. Additional enhancements have been added such as modularization and dashboards for use by non-technical users. 
+This project is based on an [older project done in 2021 as part of Prof. Andrew Treadway's STA 9660 Data Mining course at CUNY Baruch](https://github.com/cbrence/STA9660-FinalProject). Additional enhancements have been added such as modularization and dashboards for use by non-technical users. 
 
 ## Project Overview
 
-Based on the results our models, First Episode Psychosis outcomes are typically categorized into several patterns based on remission at different time points:
+Based on the results of our models, First Episode Psychosis outcomes are typically categorized into several patterns based on remission at different time points:
 
 - **Class 0**: No remission at 6 months, No remission at 12 months, Poor treatment adherence (Highest risk)
 - **Class 1**: No remission at 6 months, No remission at 12 months, Moderate treatment adherence (Very high risk)
@@ -121,7 +121,7 @@ fep_analysis/
 
 ```bash
 cd webapp
-streamlit run app.py
+streamlit run app_update.py
 ```
 
 ### Using the Models
@@ -147,6 +147,15 @@ thresholds, results = find_optimal_thresholds_multiclass(y_test, model.predict_p
 print("Optimized thresholds:", thresholds)
 ```
 
+### Retraining the models
+
+These models are trained on the data collected by Leighton et al. (2019), saved as the FEP_Dataset.csv file. 
+Should you acquire new data to train the model on, the baseline models and their resulting predictions and scores can be retrained by running:
+
+```python
+run retrain_models.py
+```
+
 ## Clinical Implications
 
 The cost-sensitive approach in this project has several clinical implications:
@@ -169,7 +178,7 @@ This project is informed by research on FEP outcomes and relapse prevention:
 ## Contributors
 
 - Brence, Colin (updated project)
-- Reybol, Antonio Jr.; Zhang, Xuewei; Zhang, Yilei (original CIS 9660 project)
+- Brence, Colin Reybol, Antonio Jr.; Zhang, Xuewei; Zhang, Yilei (original STA 9660 project)
 
 ## License
 
