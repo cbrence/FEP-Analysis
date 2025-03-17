@@ -147,6 +147,15 @@ thresholds, results = find_optimal_thresholds_multiclass(y_test, model.predict_p
 print("Optimized thresholds:", thresholds)
 ```
 
+### Retraining the models
+
+These models are trained on the data collected by Leighton et al. (2019), saved as the FEP_Dataset.csv file. 
+Should you acquire new data to train the model on, the baseline models and their resulting predictions and scores can be retrained by running:
+
+```python
+run retrain_models.py
+```
+
 ## Clinical Implications
 
 The cost-sensitive approach in this project has several clinical implications:
