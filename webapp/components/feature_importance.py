@@ -15,6 +15,71 @@ from ..components.inputs import model_selector, feature_selector
 from ..components.results import display_feature_importance
 from ..components.risk_display import display_risk_composition
 
+def ensure_models_available(state: Dict[str, Any]) -> None:
+    """
+    Ensure model information is available in the state dictionary.
+    Sets up default models if not already defined.
+    
+    Parameters
+    ----------
+    state : Dict[str, Any]
+        Application state dictionary
+    """
+    # Check if models are already set up
+    if ('available_models' not in state or 
+        'default_model' not in state or 
+        'model_descriptions' not in state):
+        
+        # Set available models
+        state['available_models'] = [
+            "Ensemble Model (Primary)",
+            "Logistic Regression",
+            "Gradient Boosting",
+            "Neural Network"
+        ]
+        
+        # Set default model
+        state['default_model'] = "Ensemble Model (Primary)"
+        
+        # Set model descriptions
+        state['model_descriptions'] = {
+            "Ensemble Model (Primary)": "Combined model focusing on high-risk cases with time-decay weighting.",
+            "Logistic Regression": "Simple interpretable model using primary clinical features.",
+            "Gradient Boosting": "Advanced model with higher accuracy but lower interpretability.",
+            "Neural Network": "Experimental model with temporal feature modeling."
+        }
+        
+        # Log that models were initialized
+        print("Initialized default models in state dictionary")
+
+def ensure_data_available(state: Dict[str, Any]) -> bool:
+    """
+    Check if patient data is available and correctly populated in state.
+    
+    Parameters
+    ----------
+    state : Dict[str, Any]
+        Application state dictionary
+        
+    Returns
+    -------
+    bool
+        True if data is available, False otherwise
+    """
+    # First check if patients_df exists in state
+    if 'patients_df' not in state or state['patients_df'] is None:
+        # Then check if it exists in session_state
+        if 'patients_df' in st.session_state and st.session_state.patients_df is not None:
+            # Copy from session_state to state
+            state['patients_df'] = st.session_state.patients_df
+            return True
+        else:
+            st.warning("No patient data available. Please load data from the Home page first.")
+            return False
+    
+    # Data is available
+    return True
+
 
 def render_feature_importance_page(state: Dict[str, Any]) -> None:
     """
@@ -31,9 +96,28 @@ def render_feature_importance_page(state: Dict[str, Any]) -> None:
     outcomes in First Episode Psychosis patients.
     """)
     
-    # Check if data is loaded
-    if 'patients_df' not in state or state['patients_df'] is None:
-        st.warning("No data loaded. Please load patient data to continue.")
+    # Check if data is available
+    if not ensure_data_available(state):
+        return
+
+    # Check for data in both state and session_state
+    data = state.get('patients_df')
+    if data is None and 'patients_df' in st.session_state:
+        data = st.session_state.patients_df
+    
+    if data is None:
+        st.warning("No patient data available. Please load data from the Home page first.")
+        
+        # Add a convenience button to go load sample data directly
+        if st.button("Load Sample Data"):
+            from webapp.components.home import load_sample_data
+            sample_data = load_sample_data()
+            if sample_data is not None:
+                # Store in both session state and app state
+                st.session_state.patients_df = sample_data
+                state['patients_df'] = sample_data
+                st.success(f"Successfully loaded {len(sample_data)} patient records")
+                st.rerun()  # Rerun the app to see the changes
         return
     
     # Create tabs for different views
@@ -76,6 +160,13 @@ def render_global_importance_section(state: Dict[str, Any]) -> None:
     helping to identify which factors are most influential in the model.
     """)
     
+    # Check if data is available
+    if not ensure_data_available(state):
+        return
+        
+    # Ensure models are set up properly
+    ensure_models_available(state)
+
     # Model selector
     col1, col2 = st.columns([2, 1])
     
@@ -143,6 +234,10 @@ def render_feature_groups_section(state: Dict[str, Any]) -> None:
     This visualization groups related features to show the importance of different 
     categories of factors in predicting outcomes.
     """)
+
+    # Check if data is available
+    if not ensure_data_available(state):
+        return
     
     # Get feature groups
     feature_groups = get_feature_groups(state)
@@ -226,14 +321,22 @@ def render_feature_correlations_section(state: Dict[str, Any]) -> None:
     redundant information and potential feature interactions.
     """)
     
-    # Get available features
-    if 'patients_df' in state:
+    # Check if data is available
+    if not ensure_data_available(state):
+        return
+
+    # Get available features - add a check for None
+    available_features = []
+    if 'patients_df' in state and state['patients_df'] is not None:
         available_features = state['patients_df'].columns.tolist()
         # Remove non-numeric features
         available_features = [col for col in available_features 
                              if pd.api.types.is_numeric_dtype(state['patients_df'][col])]
-    else:
-        available_features = []
+    
+    # Check if we have features to display
+    if not available_features:
+        st.warning("No numeric features available for correlation analysis. Please load data first.")
+        return
     
     # Feature selector
     selected_features = feature_selector(
@@ -313,6 +416,18 @@ def render_risk_composition_section(state: Dict[str, Any]) -> None:
     helping to understand which factors drive predictions for specific patients.
     """)
     
+    # Check if data is available
+    if not ensure_data_available(state):
+        return
+
+    # Ensure models are set up properly
+    ensure_models_available(state)
+
+    # Check if patient data is available
+    if 'patients_df' not in state or state['patients_df'] is None:
+        st.warning("No patient data available. Please load data from the Home page first.")
+        return
+
     # Model selector
     selected_model = model_selector(
         state.get('available_models', ["Default Model"]),

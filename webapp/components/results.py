@@ -296,104 +296,66 @@ def display_shap_explanation(predictions: pd.DataFrame) -> None:
 
 
 def display_feature_importance(feature_names: List[str],
-                             importance_values: List[float],
-                             title: str = "Model Comparison",
-                           show_as_table: bool = True,
-                           show_as_chart: bool = True) -> None:
+                              importance_values: List[float],
+                              title: str = "Feature Importance",
+                              top_n: int = 10,
+                              method: str = "model",
+                              color: str = "#1f77b4") -> None:
     """
-    Display comparison of multiple models across different metrics.
+    Display feature importance visualization.
     
     Parameters
     ----------
-    models_metrics : Dict[str, Dict[str, float]]
-        Dictionary with model names as keys and dictionaries of metrics as values
-    metrics_to_show : Optional[List[str]], default=None
-        List of metrics to include in comparison. If None, all metrics are shown.
-    higher_is_better : Optional[Dict[str, bool]], default=None
-        Dictionary specifying whether higher values are better for each metric
-    sort_by : Optional[str], default=None
-        Metric to sort models by
-    title : str, default="Model Comparison"
+    feature_names : List[str]
+        Names of features
+    importance_values : List[float]
+        Importance values for each feature
+    title : str, default="Feature Importance"
         Title for the visualization
-    show_as_table : bool, default=True
-        Whether to show results as a table
-    show_as_chart : bool, default=True
-        Whether to show results as a chart
+    top_n : int, default=10
+        Number of top features to display
+    method : str, default="model"
+        Method used to calculate feature importance
+    color : str, default="#1f77b4"
+        Color for the visualization
     """
+    # Create DataFrame for easier manipulation
+    df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': importance_values
+    }).sort_values('Importance', ascending=False)
+    
+    # Select top features if there are more features than top_n
+    if len(df) > top_n:
+        df = df.head(top_n)
+    
+    # Create visualization
     st.subheader(title)
     
-    # Set default higher_is_better if not provided
-    if higher_is_better is None:
-        # Common metrics and whether higher values are better
-        higher_is_better = {
-            'accuracy': True,
-            'precision': True,
-            'recall': True,
-            'f1': True,
-            'auc': True,
-            'roc_auc': True,
-            'pr_auc': True,
-            'mse': False,
-            'rmse': False,
-            'mae': False,
-            'log_loss': False,
-            'clinical_utility': True
-        }
+    # Add method description
+    if method == "model":
+        st.caption("Based on model's internal feature importance")
+    elif method == "shap":
+        st.caption("Based on SHAP values (impact on model output)")
+    elif method == "permutation":
+        st.caption("Based on permutation importance (decrease in performance when feature is shuffled)")
     
-    # Filter metrics if specified
-    if metrics_to_show is not None:
-        models_metrics = {
-            model: {k: v for k, v in metrics.items() if k in metrics_to_show}
-            for model, metrics in models_metrics.items()
-        }
+    # Create horizontal bar chart
+    fig, ax = plt.subplots(figsize=(10, 6))
+    df.sort_values('Importance').plot.barh(x='Feature', y='Importance', ax=ax, color=color)
+    ax.set_title(title)
+    ax.set_xlabel('Importance')
     
-    # Create DataFrame for easier manipulation
-    data = []
-    for model, metrics in models_metrics.items():
-        row = {'Model': model}
-        row.update(metrics)
-        data.append(row)
+    # Display the chart
+    st.pyplot(fig)
     
-    df = pd.DataFrame(data)
-    
-    # Sort if specified
-    if sort_by is not None and sort_by in df.columns:
-        is_better = higher_is_better.get(sort_by, True)
-        df = df.sort_values(sort_by, ascending=not is_better)
-    
-    # Format numeric values
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    df_display = df.copy()
-    for col in numeric_cols:
-        df_display[col] = df_display[col].apply(lambda x: f"{x:.3f}")
-    
-    # Display as table if requested
-    if show_as_table:
-        st.dataframe(df_display)
-    
-    # Display as chart if requested
-    if show_as_chart and len(df) > 0:
-        # Prepare data for chart
-        chart_data = df.melt(id_vars=['Model'], var_name='Metric', value_name='Value')
-        
-        # Create grouped bar chart
-        fig, ax = plt.subplots(figsize=(12, 8))
-        sns.barplot(data=chart_data, x='Metric', y='Value', hue='Model', ax=ax)
-        
-        # Customize chart
-        ax.set_title(title)
-        ax.set_xlabel('Metric')
-        ax.set_ylabel('Value')
-        plt.xticks(rotation=45)
-        plt.legend(title='Model', bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.tight_layout()
-        
-        # Display chart
-        st.pyplot(fig)
+    # Display data table
+    with st.expander("View Data"):
+        st.dataframe(df)
     
     # Add download button
     csv = df.to_csv(index=False)
-    download_button(csv, "model_comparison.csv", "Download Data")
+    download_button(csv, "feature_importance.csv", "Download Data")
 
 def display_model_comparison(models_metrics: Dict[str, Dict[str, float]],
                            metrics_to_show: Optional[List[str]] = None,

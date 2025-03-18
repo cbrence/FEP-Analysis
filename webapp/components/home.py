@@ -15,39 +15,86 @@ from ..components.risk_display import display_risk_timeline
 
 
 def render_home_page(state: Dict[str, Any]) -> None:
-    """
-    Render the home page of the FEP analysis web application.
+    st.header("FEP Prediction Dashboard")
     
-    Parameters
-    ----------
-    state : Dict[str, Any]
-        Application state dictionary
-    """
-    st.title("First Episode Psychosis (FEP) Outcomes Prediction")
+    # Introduction
     st.markdown("""
-    Welcome to the FEP Analysis Dashboard. This application helps predict and analyze 
-    outcomes for patients with First Episode Psychosis using advanced machine learning models.
+    This dashboard provides tools for analyzing First Episode Psychosis (FEP) 
+    outcomes and making predictions based on patient data.
     """)
     
-    # Check if data is loaded
-    if 'patients_df' not in state or state['patients_df'] is None:
-        st.warning("No data loaded. Please load patient data to continue.")
-        
-        # Add sample data option for demonstration
-        if st.button("Load Sample Data"):
-            load_sample_data(state)
-        return
+    # Data loading options
+    st.subheader("Data Options")
     
-    # Create dashboard sections
-    col1, col2 = st.columns([1, 1])
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.subheader("Quick Prediction")
-        render_quick_prediction_section(state)
-    
+        if st.button("Load Sample Data"):
+            sample_data = load_sample_data()
+            if sample_data is not None:
+                # Store in both session state and app state
+                st.session_state.patients_df = sample_data
+                state['patients_df'] = sample_data
+                st.success(f"Successfully loaded {len(sample_data)} patient records")
+                
+                # Print debug info
+                st.write(f"Data loaded with {len(sample_data)} records and {len(sample_data.columns)} columns")
+                st.write(f"Data columns: {', '.join(sample_data.columns)}")
+
+                # Set up default models
+                setup_default_models(state)
+                
+                # Generate sample risk timeline if needed
+                if 'risk_timeline_df' not in state:
+                    generate_sample_risk_timeline(state)
+                
+                # Generate sample metrics if needed
+                if 'model_metrics' not in state:
+                    generate_sample_metrics(state)
+                
+                # Set available models if not set
+                if 'available_models' not in state:
+                    state['available_models'] = [
+                        "Ensemble Model (Primary)",
+                        "Logistic Regression",
+                        "Gradient Boosting",
+                        "Neural Network"
+                    ]
+                    
+                    state['default_model'] = "Ensemble Model (Primary)"
+                    
+                    # Set model descriptions
+                    state['model_descriptions'] = {
+                        "Ensemble Model (Primary)": "Combined model focusing on high-risk cases with time-decay weighting.",
+                        "Logistic Regression": "Simple interpretable model using primary clinical features.",
+                        "Gradient Boosting": "Advanced model with higher accuracy but lower interpretability.",
+                        "Neural Network": "Experimental model with temporal feature modeling."
+                    }
+                
+                # Force a rerun to update all components with the new data
+                st.rerun()
+        
     with col2:
-        st.subheader("Overall Statistics")
-        render_statistics_section(state)
+        uploaded_file = st.file_uploader("Upload Patient Data (CSV)", type=["csv"])
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                # Store in both session state and app state
+                st.session_state.patients_df = df
+                state['patients_df'] = df
+                
+                st.success(f"Successfully loaded {len(df)} patient records")
+                st.dataframe(df.head())
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+    
+    with col3:
+        if st.button("Reset Data"):
+            # Clear data from both session state and app state
+            if 'patients_df' in st.session_state:
+                del st.session_state.patients_df
+            state['patients_df'] = None
+            st.success("Data reset successful")
     
     # Recent predictions section
     st.subheader("Recent Predictions")
@@ -364,9 +411,15 @@ def generate_sample_risk_timeline(state: Dict[str, Any]) -> None:
     np.random.seed(42)
     
     # Get patient IDs
-    if 'patients_df' in state:
-        patient_ids = state['patients_df']['patient_id'].unique()[:5]  # Use first 5 patients
+    if 'patients_df' in state and state['patients_df'] is not None:
+        # Check if patient_id column exists
+        if 'patient_id' in state['patients_df'].columns:
+            patient_ids = state['patients_df']['patient_id'].unique()[:5]  # Use first 5 patients
+        else:
+            # Generate sample IDs if patient_id column doesn't exist
+            patient_ids = [f"P{i:03d}" for i in range(1, 6)]
     else:
+        # Generate sample IDs if no patient data
         patient_ids = [f"P{i:03d}" for i in range(1, 6)]
     
     # Create timeline for each patient
@@ -396,7 +449,7 @@ def generate_sample_risk_timeline(state: Dict[str, Any]) -> None:
     state['risk_timeline_df'] = pd.DataFrame(timeline_data)
 
 
-def load_sample_data(state: Dict[str, Any]) -> None:
+def load_sample_data() -> Optional[pd.DataFrame]:
     """
     Load sample data for demonstration purposes.
     
@@ -446,8 +499,9 @@ def load_sample_data(state: Dict[str, Any]) -> None:
             'admission_date': admission_date
         })
     
-    # Create DataFrame
-    state['patients_df'] = pd.DataFrame(patient_data)
+    
+    # Create DataFrame and return it
+    return pd.DataFrame(patient_data)
     
     # Generate sample outcomes
     outcome_data = []
@@ -511,3 +565,31 @@ def load_sample_data(state: Dict[str, Any]) -> None:
     st.success("Sample data loaded successfully.")
     
     st.write("Preview of loaded data:", state['patients_df'].head())
+
+def setup_default_models(state: Dict[str, Any]) -> None:
+    """
+    Set up default models and their descriptions in the state dictionary.
+    
+    Parameters
+    ----------
+    state : Dict[str, Any]
+        Application state dictionary
+    """
+    # Set available models
+    state['available_models'] = [
+        "Ensemble Model (Primary)",
+        "Logistic Regression",
+        "Gradient Boosting",
+        "Neural Network"
+    ]
+    
+    # Set default model
+    state['default_model'] = "Ensemble Model (Primary)"
+    
+    # Set model descriptions
+    state['model_descriptions'] = {
+        "Ensemble Model (Primary)": "Combined model focusing on high-risk cases with time-decay weighting.",
+        "Logistic Regression": "Simple interpretable model using primary clinical features.",
+        "Gradient Boosting": "Advanced model with higher accuracy but lower interpretability.",
+        "Neural Network": "Experimental model with temporal feature modeling."
+    }
