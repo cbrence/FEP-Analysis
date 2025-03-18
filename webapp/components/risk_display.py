@@ -466,165 +466,139 @@ def display_risk_distribution(risk_scores: Union[List[float], np.ndarray],
                 st.metric(row['Quantile'], row['Value'])
 
 
-def display_risk_stratification(risk_scores: Union[List[float], np.ndarray],
-                              thresholds: List[float],
-                              class_labels: Optional[Union[List[int], np.ndarray]] = None,
-                              stratum_labels: Optional[List[str]] = None,
-                              title: str = "Risk Stratification Analysis") -> None:
+def display_risk_stratification(risk_scores, class_indices=None, title="Risk Stratification"):
     """
-    Display risk stratification analysis with multiple thresholds.
+    Display risk stratification visualization.
     
     Parameters
     ----------
-    risk_scores : Union[List[float], np.ndarray]
-        Predicted risk scores or probabilities
-    thresholds : List[float]
-        List of threshold values defining risk strata
-    class_labels : Optional[Union[List[int], np.ndarray]], default=None
-        True class labels (1 for positive, 0 for negative)
-    stratum_labels : Optional[List[str]], default=None
-        Labels for risk strata, should have length len(thresholds) + 1
-    title : str, default="Risk Stratification Analysis"
+    risk_scores : list
+        List of risk scores or class probabilities
+    class_indices : list, optional
+        List of class indices to highlight
+    title : str, default="Risk Stratification"
         Title for the visualization
     """
     st.subheader(title)
     
-    # Ensure numpy arrays
-    risk_scores = np.array(risk_scores)
-    thresholds = sorted(thresholds)  # Ensure thresholds are sorted
+    # Define risk level configurations
+    risk_levels = [
+        {"name": "High Risk", "color": "#FF4B4B", "classes": [0, 1, 2], "emoji": "🔴"},
+        {"name": "Moderate Risk", "color": "#FFA500", "classes": [3, 4, 5], "emoji": "🟠"},
+        {"name": "Low Risk", "color": "#4BD464", "classes": [6, 7], "emoji": "🟢"}
+    ]
     
-    # Set default stratum labels if not provided
-    if stratum_labels is None:
-        if len(thresholds) == 1:
-            stratum_labels = ["Low Risk", "High Risk"]
-        elif len(thresholds) == 2:
-            stratum_labels = ["Low Risk", "Medium Risk", "High Risk"]
-        elif len(thresholds) == 3:
-            stratum_labels = ["Very Low Risk", "Low Risk", "Medium Risk", "High Risk"]
-        else:
-            stratum_labels = [f"Stratum {i+1}" for i in range(len(thresholds) + 1)]
+    # Calculate total risk for each level
+    high_risk = sum([risk_scores[i] for i in risk_levels[0]["classes"] if i < len(risk_scores)])
+    moderate_risk = sum([risk_scores[i] for i in risk_levels[1]["classes"] if i < len(risk_scores)])
+    low_risk = sum([risk_scores[i] for i in risk_levels[2]["classes"] if i < len(risk_scores)])
     
-    # Define all boundaries including min and max
-    all_boundaries = [0.0] + thresholds + [1.0]
+    # Format risk percentages
+    high_risk_pct = f"{high_risk * 100:.1f}%"
+    moderate_risk_pct = f"{moderate_risk * 100:.1f}%"
+    low_risk_pct = f"{low_risk * 100:.1f}%"
     
-    # Create DataFrame for display
-    data = []
-    for i in range(len(all_boundaries) - 1):
-        lower = all_boundaries[i]
-        upper = all_boundaries[i+1]
-        
-        # Count samples in this stratum
-        stratum_mask = (risk_scores >= lower) & (risk_scores < upper)
-        count = np.sum(stratum_mask)
-        percentage = 100 * count / len(risk_scores)
-        
-        # Calculate positive rate if class labels are provided
-        if class_labels is not None:
-            class_labels_np = np.array(class_labels)
-            stratum_labels_np = class_labels_np[stratum_mask]
-            positive_count = np.sum(stratum_labels_np == 1)
-            positive_rate = 100 * positive_count / count if count > 0 else 0
-        else:
-            positive_count = None
-            positive_rate = None
-        
-        # Add to data
-        data.append({
-            'Stratum': stratum_labels[i],
-            'Lower Bound': lower,
-            'Upper Bound': upper,
-            'Count': count,
-            'Percentage': percentage,
-            'Positive Count': positive_count,
-            'Positive Rate': positive_rate
-        })
-    
-    df = pd.DataFrame(data)
-    
-    # Create visualization
-    # 1. Horizontal bar chart for population distribution
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    # Create colormap
-    #colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
-    if 'class' in df.columns:
-    # Use class-specific colors if class column exists
-        colors = [get_class_color(cls) for cls in df['class']]
+    # Determine overall risk level
+    if high_risk > 0.4:
+        overall_risk = "High"
+    elif moderate_risk > 0.4:
+        overall_risk = "Moderate"
     else:
-    # Create colors based on risk level names
-        risk_colors = {
-            'High Risk': '#ff1a1a',
-            'Moderate Risk': '#ffa64d',
-            'Low Risk': '#67e667'
-        }
-    colors = [risk_colors.get(stratum, plt.cm.viridis(i/len(df))) for i, stratum in enumerate(df['Stratum'])]
-    # Plot horizontal bars
-    bars = ax.barh(df['Stratum'], df['Count'], color=colors)
+        overall_risk = "Low"
     
-    # Add count and percentage labels
-    for i, bar in enumerate(bars):
-        width = bar.get_width()
-        percentage = df.iloc[i]['Percentage']
-        ax.text(width + 0.5, bar.get_y() + bar.get_height()/2, 
-               f"{int(width)} ({percentage:.1f}%)", 
-               va='center')
+    # Display overall assessment
+    st.markdown(f"### Overall Assessment: **{overall_risk} Risk**")
     
-    # Set labels and title
-    ax.set_xlabel('Count')
-    ax.set_ylabel('Risk Stratum')
-    ax.set_title('Population by Risk Stratum')
+    # Create risk level bars
+    col1, col2, col3 = st.columns(3)
     
-    # Display chart
-    st.pyplot(fig)
+    with col1:
+        st.markdown(
+            f"""<div style="background-color: {risk_levels[0]['color']}; 
+            padding: 10px; border-radius: 5px; text-align: center;">
+            <h3 style="margin: 0; color: white;">{risk_levels[0]['emoji']} {high_risk_pct}</h3>
+            <p style="margin: 0; color: white;">High Risk</p>
+            </div>""", 
+            unsafe_allow_html=True
+        )
     
-    # If class labels are provided, create positive rate visualization
-    if class_labels is not None:
-        fig2, ax2 = plt.subplots(figsize=(10, 6))
+    with col2:
+        st.markdown(
+            f"""<div style="background-color: {risk_levels[1]['color']}; 
+            padding: 10px; border-radius: 5px; text-align: center;">
+            <h3 style="margin: 0; color: white;">{risk_levels[1]['emoji']} {moderate_risk_pct}</h3>
+            <p style="margin: 0; color: white;">Moderate Risk</p>
+            </div>""", 
+            unsafe_allow_html=True
+        )
+    
+    with col3:
+        st.markdown(
+            f"""<div style="background-color: {risk_levels[2]['color']}; 
+            padding: 10px; border-radius: 5px; text-align: center;">
+            <h3 style="margin: 0; color: white;">{risk_levels[2]['emoji']} {low_risk_pct}</h3>
+            <p style="margin: 0; color: white;">Low Risk</p>
+            </div>""", 
+            unsafe_allow_html=True
+        )
+    
+    # Show class details
+    with st.expander("View Class Details"):
+        # Create a table of all classes and their probabilities
+        class_descriptions = [
+            "No remission at 6 & 12 months, Poor adherence (Highest risk)",
+            "No remission at 6 & 12 months, Moderate adherence (Very high risk)",
+            "Remission at 6 months, No at 12 - Early relapse (High risk)",
+            "No remission at 6, Remission at 12, Poor adherence (Moderate-high risk)",
+            "Remission at 6, No at 12, Maintained functioning (Moderate risk)",
+            "No remission at 6, Remission at 12, Good adherence (Moderate-low risk)",
+            "Remission at 6 & 12 months with residual symptoms (Low risk)", 
+            "Remission at 6 & 12 months, Full recovery (Lowest risk)"
+        ]
         
-        # Plot positive rates
-        bars = ax2.barh(df['Stratum'], df['Positive Rate'], color=colors)
+        # Build data for the table
+        data = []
+        for i, desc in enumerate(class_descriptions):
+            # Determine risk level for this class
+            for level in risk_levels:
+                if i in level["classes"]:
+                    risk_level = level["name"]
+                    level_emoji = level["emoji"]
+                    break
+            
+            # Format the probability
+            prob = risk_scores[i] if i < len(risk_scores) else 0
+            prob_str = f"{prob * 100:.1f}%"
+            
+            # Add highlight for class_indices
+            is_highlighted = class_indices and i in class_indices
+            
+            # Add row
+            data.append({
+                "Class": f"Class {i}",
+                "Risk Level": f"{level_emoji} {risk_level}",
+                "Probability": prob_str,
+                "Description": desc,
+                "Highlighted": is_highlighted
+            })
         
-        # Add positive rate labels
-        for i, bar in enumerate(bars):
-            width = bar.get_width()
-            pos_count = df.iloc[i]['Positive Count']
-            count = df.iloc[i]['Count']
-            ax2.text(width + 0.5, bar.get_y() + bar.get_height()/2, 
-                   f"{width:.1f}% ({pos_count}/{count})", 
-                   va='center')
+        # Convert to DataFrame for display
+        df = pd.DataFrame(data)
         
-        # Set labels and title
-        ax2.set_xlabel('Positive Rate (%)')
-        ax2.set_ylabel('Risk Stratum')
-        ax2.set_title('Positive Rate by Risk Stratum')
-        
-        # Display chart
-        st.pyplot(fig2)
-    
-    # Display data table
-    st.subheader("Stratification Data")
-    
-    # Format table for display
-    display_df = df.copy()
-    display_df['Lower Bound'] = display_df['Lower Bound'].apply(lambda x: f"{x:.2f}")
-    display_df['Upper Bound'] = display_df['Upper Bound'].apply(lambda x: f"{x:.2f}")
-    display_df['Percentage'] = display_df['Percentage'].apply(lambda x: f"{x:.1f}%")
-    
-    if class_labels is not None:
-        display_df['Positive Rate'] = display_df['Positive Rate'].apply(lambda x: f"{x:.1f}%" if x is not None else "N/A")
-    else:
-        display_df = display_df.drop(columns=['Positive Count', 'Positive Rate'])
-    
-    st.dataframe(display_df)
-    
-    # Add download button
-    csv = df.to_csv(index=False)
-    st.download_button(
-        label="Download Data",
-        data=csv,
-        file_name="risk_stratification.csv",
-        mime="text/csv"
-    )
+        # Highlight the predicted class if specified
+        if class_indices:
+            # Use pandas styler to highlight the predicted class
+            def highlight_predicted(row):
+                styles = [''] * len(row)
+                if row['Highlighted']:
+                    styles = ['background-color: #FFFFB0'] * len(row)
+                return styles
+            
+            # Display the dataframe
+            st.dataframe(df.style.apply(highlight_predicted, axis=1))
+        else:
+            # Simple display without styling
+            st.dataframe(df)
 
 
 def display_risk_map(x_values: Union[List[float], np.ndarray],

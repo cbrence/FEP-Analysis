@@ -217,62 +217,167 @@ def show_prediction_tool(models):
         # In a real implementation, this would use the actual models
         # Here we'll simulate prediction based on input values
         
-        # Create simulated probabilities based on inputs
-        # Higher P1, G12, early warning signs increase risk of classes 0, 1, 2
-        high_risk_factor = ((p1-1)/6 + (g12-1)/6 + warning_risk) / 3
-        high_risk_factor = max(0.1, min(0.9, high_risk_factor))
+        if model_choice == "Gradient Boosting (Recommended)":
+            # Higher P1, G12, early warning signs increase risk of classes 0, 1, 2
+            high_risk_factor = ((p1-1)/6 * 1.2 + (g12-1)/6 * 1.3 + warning_risk * 1.1) / 3
+            high_risk_factor = max(0.1, min(0.9, high_risk_factor))
+            
+            # Treatment adherence factor (lower means worse adherence)
+            adherence_factor = 1.0 - (1.0 if med_adherence else 0.0) / 1.8
+            adherence_factor = max(0.2, min(0.8, adherence_factor))
+            
+            # Social functioning factor (lower means worse functioning)
+            social_factor = 1.0 - ((n4-1)/6 * 1.1 + (g16-1)/6 * 1.2) / 2
+            social_factor = max(0.2, min(0.8, social_factor))
 
-        # Treatment adherence factor (lower means worse adherence)
-        adherence_factor = 1.0 - (1.0 if med_adherence else 0.0) / 2
-        adherence_factor = max(0.2, min(0.8, adherence_factor))
+        elif model_choice == "High-Risk Ensemble":
+            # This model is more sensitive to high-risk patterns
+            high_risk_factor = ((p1-1)/6 * 1.5 + (g12-1)/6 * 1.4 + warning_risk * 1.6) / 3
+            high_risk_factor = max(0.2, min(0.95, high_risk_factor))
+            
+            # More sensitive to adherence issues
+            adherence_factor = 1.0 - (1.0 if med_adherence else 0.0) / 1.5
+            adherence_factor = max(0.15, min(0.7, adherence_factor))
+            
+            # More sensitive to social dysfunction
+            social_factor = 1.0 - ((n4-1)/6 * 1.3 + (g16-1)/6 * 1.3) / 2
+            social_factor = max(0.15, min(0.7, social_factor))
 
-        # Social functioning factor (lower means worse functioning)
-        social_factor = 1.0 - ((n4-1)/6 + (g16-1)/6) / 2
-        social_factor = max(0.2, min(0.8, social_factor))
+        elif model_choice == "Logistic Regression":
+            # This model is less sensitive to nuances
+            high_risk_factor = ((p1-1)/6 * 0.9 + (g12-1)/6 * 0.8 + warning_risk * 0.7) / 3
+            high_risk_factor = max(0.05, min(0.8, high_risk_factor))
+            
+            # Less sensitive to adherence issues
+            adherence_factor = 1.0 - (1.0 if med_adherence else 0.0) / 2.5
+            adherence_factor = max(0.3, min(0.9, adherence_factor))
+            
+            # Less sensitive to social dysfunction
+            social_factor = 1.0 - ((n4-1)/6 * 0.8 + (g16-1)/6 * 0.7) / 2
+            social_factor = max(0.3, min(0.9, social_factor))
 
-        # Initialize with small baseline probabilities
-        class_probs = {
-            0: 0.05,  # No remission at 6 & 12 months, Poor adherence (Highest risk)
-            1: 0.05,  # No remission at 6 & 12 months, Moderate adherence (Very high risk)
-            2: 0.05,  # Remission at 6 months, No at 12 - Early relapse with functional decline (High risk)
-            3: 0.05,  # No remission at 6, Remission at 12, Poor adherence (Moderate-high risk)
-            4: 0.05,  # Remission at 6, No at 12, Maintained functioning (Moderate risk)
-            5: 0.05,  # No remission at 6, Remission at 12, Good adherence (Moderate-low risk)
-            6: 0.05,  # Remission at 6 & 12 months with residual symptoms (Low risk)
-            7: 0.05   # Remission at 6 & 12 months, Full recovery (Lowest risk)
+        else:  # Decision Tree
+            # More binary decision boundaries
+            high_risk_factor = ((p1-1)/6 * 1.0 + (g12-1)/6 * 1.0 + warning_risk * 1.0) / 3
+            # Decision trees tend to have more discrete boundaries
+            if high_risk_factor > 0.5:
+                high_risk_factor = 0.8
+            else:
+                high_risk_factor = 0.3
+        
+            # More binary for adherence
+            adherence_factor = 0.7 if med_adherence else 0.3
+            
+            # More binary for social functioning
+            if (n4 + g16) / 2 > 4:
+                social_factor = 0.3
+            else:
+                social_factor = 0.7
+
+        # Initialize with model-specific baseline probabilities
+        if model_choice == "Gradient Boosting (Recommended)":
+            # Balanced distribution
+            class_probs = {
+                0: 0.05, 1: 0.05, 2: 0.05, 3: 0.05, 
+                4: 0.05, 5: 0.05, 6: 0.05, 7: 0.05
             }
-
-
+        elif model_choice == "High-Risk Ensemble":
+            # Skewed toward high-risk classes
+            class_probs = {
+                0: 0.10, 1: 0.09, 2: 0.08, 3: 0.06, 
+                4: 0.05, 5: 0.04, 6: 0.03, 7: 0.02
+            }
+        elif model_choice == "Logistic Regression":
+            # More balanced, slightly favoring moderate classes
+            class_probs = {
+                0: 0.03, 1: 0.03, 2: 0.04, 3: 0.07, 
+                4: 0.07, 5: 0.07, 6: 0.04, 7: 0.03
+            }
+        else:  # Decision Tree
+            # More extreme, less nuanced
+            class_probs = {
+                0: 0.08, 1: 0.04, 2: 0.03, 3: 0.02, 
+                4: 0.02, 5: 0.03, 6: 0.04, 7: 0.08
+            }
+    
+        # Adjust based on risk profile with model-specific multipliers
         if early_warning_count >= 3 or p1 >= 5 or g12 >= 5:
-            # High risk profile
-            class_probs[0] = 0.30 * high_risk_factor * (1 - adherence_factor)  # Highest risk - poor adherence
-            class_probs[1] = 0.25 * high_risk_factor * adherence_factor  # Very high risk - moderate adherence
-            class_probs[2] = 0.20 * high_risk_factor  # Early relapse with functional decline
-            class_probs[3] = 0.10 * (1 - social_factor)  # Late remission, poor adherence
-            class_probs[4] = 0.05 * social_factor  # Early non-sustained remission, maintained functioning
-            class_probs[5] = 0.05 * adherence_factor  # Late remission, good adherence
-            class_probs[6] = 0.03 * (1 - high_risk_factor)  # Sustained with residual
-            class_probs[7] = 0.02 * (1 - high_risk_factor)  # Full recovery
+            # High risk profile - add model-specific modifications
+            multiplier = 1.0  # Default multiplier
+            
+            if model_choice == "High-Risk Ensemble":
+                multiplier = 1.3  # High-Risk model emphasizes high-risk cases more
+            elif model_choice == "Logistic Regression":
+                multiplier = 0.8  # Logistic Regression is more conservative
+            elif model_choice == "Decision Tree":
+                multiplier = 1.1  # Decision Tree slightly emphasizes high-risk
+                
+            # Apply the model-specific multiplier to high-risk classes
+            class_probs[0] = 0.30 * high_risk_factor * (1 - adherence_factor) * multiplier
+            class_probs[1] = 0.25 * high_risk_factor * adherence_factor * multiplier
+            class_probs[2] = 0.20 * high_risk_factor * multiplier
+            
+            # Adjust moderate and low risk classes inversely
+            inverse_mult = 2 - multiplier  # If multiplier is high, inverse_mult is low and vice versa
+            class_probs[3] = 0.10 * (1 - social_factor) * inverse_mult
+            class_probs[4] = 0.05 * social_factor * inverse_mult
+            class_probs[5] = 0.05 * adherence_factor * inverse_mult
+            class_probs[6] = 0.03 * (1 - high_risk_factor) * inverse_mult
+            class_probs[7] = 0.02 * (1 - high_risk_factor) * inverse_mult
+
         elif early_warning_count >= 1 or p1 >= 3 or g12 >= 3:
-            # Moderate risk profile
-            class_probs[0] = 0.15 * high_risk_factor * (1 - adherence_factor)
-            class_probs[1] = 0.10 * high_risk_factor * adherence_factor
-            class_probs[2] = 0.10 * high_risk_factor
-            class_probs[3] = 0.15 * (1 - social_factor)
-            class_probs[4] = 0.15 * social_factor
-            class_probs[5] = 0.15 * adherence_factor
+            # Moderate risk profile - add model-specific modifications
+            mod_multiplier = 1.0  # Default moderate risk multiplier
+            
+            if model_choice == "High-Risk Ensemble":
+                mod_multiplier = 0.9  # High-Risk model slightly de-emphasizes moderate cases
+            elif model_choice == "Logistic Regression":
+                mod_multiplier = 1.2  # Logistic Regression emphasizes moderate risk cases
+            elif model_choice == "Decision Tree":
+                mod_multiplier = 1.0  # Decision Tree treats moderate cases normally
+                
+            # Apply the model-specific multiplier to moderate-risk classes
+            class_probs[3] = 0.15 * (1 - social_factor) * mod_multiplier
+            class_probs[4] = 0.15 * social_factor * mod_multiplier
+            class_probs[5] = 0.15 * adherence_factor * mod_multiplier
+            
+            # Adjust high-risk classes based on model
+            high_multiplier = 1.0
+            if model_choice == "High-Risk Ensemble":
+                high_multiplier = 1.3
+            elif model_choice == "Logistic Regression":
+                high_multiplier = 0.7
+                
+            class_probs[0] = 0.15 * high_risk_factor * (1 - adherence_factor) * high_multiplier
+            class_probs[1] = 0.10 * high_risk_factor * adherence_factor * high_multiplier
+            class_probs[2] = 0.10 * high_risk_factor * high_multiplier
+            
+            # Low risk classes remain relatively unchanged
             class_probs[6] = 0.10 * (1 - high_risk_factor)
             class_probs[7] = 0.10 * (1 - high_risk_factor)
+
         else:
-            # Low risk profile
+            # Low risk profile - add model-specific modifications
+            low_multiplier = 1.0  # Default low risk multiplier
+            
+            if model_choice == "High-Risk Ensemble":
+                low_multiplier = 0.7  # High-Risk model de-emphasizes low-risk cases
+            elif model_choice == "Logistic Regression":
+                low_multiplier = 1.1  # Logistic Regression slightly emphasizes low risk cases
+            elif model_choice == "Decision Tree":
+                low_multiplier = 0.9  # Decision Tree slightly de-emphasizes low risk
+                
+            # Apply the model-specific multiplier to low-risk classes
+            class_probs[6] = 0.20 * (1 - high_risk_factor) * low_multiplier
+            class_probs[7] = 0.30 * (1 - high_risk_factor) * low_multiplier
+            
+            # Adjust other classes
             class_probs[0] = 0.05 * high_risk_factor * (1 - adherence_factor)
             class_probs[1] = 0.05 * high_risk_factor * adherence_factor
             class_probs[2] = 0.05 * high_risk_factor
             class_probs[3] = 0.10 * (1 - social_factor)
             class_probs[4] = 0.10 * social_factor
             class_probs[5] = 0.15 * adherence_factor
-            class_probs[6] = 0.20 * (1 - high_risk_factor)
-            class_probs[7] = 0.30 * (1 - high_risk_factor)
         
         # Normalize probabilities to sum to 1
         total_prob = sum(class_probs.values())
@@ -296,12 +401,20 @@ def show_prediction_tool(models):
         # Show key risk factors
         risk_factors_for_display = []
         for feature, weight in SAMPLE_FEATURE_IMPORTANCE.items():
+            # Adjust weights based on model choice
+            adjusted_weight = weight
+            if model_choice == "High-Risk Ensemble" and feature in ["P1: Delusions", "G12: Lack of judgment and insight"]:
+                adjusted_weight = weight * 1.3
+            elif model_choice == "Logistic Regression":
+                # Logistic regression typically has more evenly distributed weights
+                adjusted_weight = (weight * 0.7) + 0.02
+                
             risk_factors_for_display.append({
-            'name': feature,
-            'weight': weight,
-            'category': 'Clinical',  # Add appropriate category if available
-            'modifiable': feature not in ['Age', 'Gender', 'Ethnicity']  # Example logic for modifiability
-             })
+                'name': feature,
+                'weight': adjusted_weight,
+                'category': 'Clinical',  # Add appropriate category if available
+                'modifiable': feature not in ['Age', 'Gender', 'Ethnicity']  # Example logic for modifiability
+            })
 
         display_risk_factors(risk_factors_for_display)
         
@@ -349,6 +462,14 @@ def show_prediction_tool(models):
             
             if early_warning_count >= 1:
                 st.info("ℹ️ **Note:** Monitor the identified early warning sign(s) at regular intervals.")
+        
+        # Add model-specific notes
+        if model_choice == "High-Risk Ensemble":
+            st.info("**Note:** The High-Risk Ensemble model is calibrated to be particularly sensitive to risk patterns that have historically led to poor outcomes. It may classify more patients as high-risk compared to other models.")
+        elif model_choice == "Logistic Regression":
+            st.info("**Note:** The Logistic Regression model provides a more balanced assessment with emphasis on established clinical factors. It may classify fewer patients at the extremes.")
+        elif model_choice == "Decision Tree":
+            st.info("**Note:** The Decision Tree model uses discrete clinical thresholds to classify patients. This provides clear decision boundaries but may be less sensitive to subtle clinical presentations.")
         
         # Limitations disclaimer
         st.caption("""
