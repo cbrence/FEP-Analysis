@@ -93,6 +93,9 @@ fep_analysis/
 
 ## Installation and Usage
 
+For users who prefer the Streamlit app, you may find the link using the most recently available repo code here:
+- https://fep-analysis.streamlit.app/
+
 ### Prerequisites
 
 - Python 3.8+
